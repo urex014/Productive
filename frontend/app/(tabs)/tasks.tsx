@@ -25,7 +25,7 @@ export default function TasksScreen() {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false)
   const [editingTask, setEditingTask] = useState<any>(null)
 
-  const API_BASE = "http://192.168.100.30:5000/api/tasks" 
+  const API_BASE = "http://192.168.100.30:5000/api/tasks"
 
   // Fetch tasks
   const fetchTasks = async () => {
@@ -37,9 +37,12 @@ export default function TasksScreen() {
           Authorization: `Bearer ${token}`,
         },
       })
+
       if (!res.ok) throw new Error("Failed to fetch tasks")
       const data = await res.json()
-      setTasks(data)
+
+      // handle backend sending { tasks: [] } or plain []
+      setTasks(Array.isArray(data) ? data : data.tasks || [])
     } catch (err) {
       console.error("Failed to fetch tasks", err)
     }
@@ -87,28 +90,35 @@ export default function TasksScreen() {
 
   // Update a task
   const handleUpdateTask = async () => {
-    if (!editingTask?.title.trim()) return
+    if (!editingTask?.title?.trim()) return
 
     try {
       const token = await AsyncStorage.getItem("token")
-      const res = await fetch(`${API_BASE}/${editingTask.id || editingTask._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: editingTask.title,
-          description: editingTask.description,
-          dueDate: editingTask.dueDate,
-        }),
-      })
+      const res = await fetch(
+        `${API_BASE}/${editingTask.id || editingTask._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: editingTask.title,
+            description: editingTask.description,
+            dueDate: editingTask.dueDate,
+          }),
+        }
+      )
+
       if (!res.ok) throw new Error("Failed to update task")
-      const updatedTask = await res.json()
+        const result = await res.json()
+      const updatedTask = result.task || result
 
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === updatedTask.id || t._id === updatedTask._id ? updatedTask : t
+          t.id === updatedTask.id || t._id === updatedTask._id
+            ? updatedTask
+            : t
         )
       )
       setEditingTask(null)
@@ -116,7 +126,7 @@ export default function TasksScreen() {
       setNewDescription("")
       setNewDueDate(null)
     } catch (err) {
-      console.error(err)
+      console.error("Failed to update task", err)
     }
   }
 
@@ -155,6 +165,7 @@ export default function TasksScreen() {
                 Authorization: `Bearer ${token}`,
               },
             })
+
             if (!res.ok) throw new Error("Failed to delete all tasks")
             setTasks([])
           } catch (err) {
@@ -176,7 +187,6 @@ export default function TasksScreen() {
 
           {/* Task Form */}
           <View className="bg-gray-900 rounded-2xl p-4 mb-6 shadow-lg">
-            {/* Header */}
             <Text className="text-white text-lg font-bold mb-3">
               {editingTask ? "Update Task" : "Create Task"}
             </Text>
@@ -197,7 +207,10 @@ export default function TasksScreen() {
               value={editingTask ? editingTask.description : newDescription}
               onChangeText={(text) =>
                 editingTask
-                  ? setEditingTask((prev: any) => ({ ...prev, description: text }))
+                  ? setEditingTask((prev: any) => ({
+                      ...prev,
+                      description: text,
+                    }))
                   : setNewDescription(text)
               }
               placeholder="Description"
@@ -213,7 +226,9 @@ export default function TasksScreen() {
               <Calendar color="white" size={18} />
               <Text
                 className={`ml-2 ${
-                  editingTask?.dueDate || newDueDate ? "text-white" : "text-gray-400"
+                  editingTask?.dueDate || newDueDate
+                    ? "text-white"
+                    : "text-gray-400"
                 }`}
               >
                 {editingTask?.dueDate
@@ -295,9 +310,9 @@ export default function TasksScreen() {
                 tint="dark"
                 className="flex-row justify-between items-center rounded-xl p-4 mb-3 overflow-hidden"
               >
-                <View className="flex-col ">
+                <View className="flex-col">
                   <Text className="text-white text-lg font-semibold">
-                    {item.title}
+                    {item.title || "Untitled Task"}
                   </Text>
                   <Text numberOfLines={1} className="text-gray-300 text-sm">
                     {item.description}
@@ -306,8 +321,8 @@ export default function TasksScreen() {
                     Due: {new Date(item.dueDate).toLocaleString()}
                   </Text>
                 </View>
+
                 <View className="flex-row">
-                  <View className="z-10 flex-row flex">
                   <TouchableOpacity
                     onPress={() => {
                       setEditingTask(item)
@@ -319,12 +334,12 @@ export default function TasksScreen() {
                   >
                     <Edit color="#60a5fa" size={20} />
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={() => handleDeleteTask(item.id || item._id)}
                   >
                     <Trash2 color="#ef4444" size={20} />
                   </TouchableOpacity>
-                  </View>
                 </View>
               </BlurView>
             )}

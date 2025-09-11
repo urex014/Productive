@@ -156,12 +156,9 @@ export default function StudyScreen() {
     <SafeAreaView className="flex-1 bg-black px-6">
       {/* Header */}
       <View className="flex-row items-center mt-4 mb-8">
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          className="p-2 mr-3 rounded-full bg-gray-800"
-        >
-          <ArrowLeft color="white" size={22} />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+                  <Text className="text-blue-400 text-base">← Back</Text>
+                </TouchableOpacity>
         <Text className="text-white text-xl font-bold">Study Session</Text>
       </View>
 

@@ -97,6 +97,7 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     userId INTEGER NOT NULL,
+    note TEXT NOT NULL,
     taskId INTEGER NOT NULL,
     remindAt TEXT NOT NULL,
     createdAt TEXT DEFAULT (datetime('now')),
@@ -111,12 +112,19 @@ cron.schedule("* * * * *", () => {
   const nowISO = now.toISOString();
 
   // 1. Find reminders that are due now (trigger them)
-  const dueReminders = db
-    .prepare("SELECT * FROM reminders WHERE remindAt <= ?")
-    .all(nowISO);
+  const dueReminders = db.prepare(`
+  SELECT reminders.*, tasks.title 
+  FROM reminders
+  JOIN tasks ON reminders.taskId = tasks.id
+  WHERE remindAt <= ?
+`).all(nowISO);
+
 
   if (dueReminders.length > 0) {
     dueReminders.forEach((rem) => {
+      // console.log("Triggering reminder:", rem);
+     
+        
       console.log(`Reminder: ${rem.note} (due ${rem.remindAt})`);
     });
   }

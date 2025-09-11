@@ -5,84 +5,86 @@ const taskRoutes = (db) => {
   const router = express.Router();
 
   // CREATE task (with reminder)
-  router.post("/", authMiddleware, (req, res) => {
-    try {
-      const { title, description, dueDate } = req.body;
+  // CREATE task (with reminder)
+router.post("/", authMiddleware, (req, res) => {
+  try {
+    const { title, description, dueDate } = req.body;
 
-      if (!title || !description || !dueDate) {
-        return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      // Insert the task
-      const stmt = db.prepare(
-        "INSERT INTO tasks (userId, title, description, dueDate) VALUES (?, ?, ?, ?)"
-      );
-      const result = stmt.run(req.userId, title, description, dueDate);
-
-      const taskId = result.lastInsertRowid;
-
-      // Validate the dueDate
-      const dueDateObj = new Date(dueDate);
-      if (isNaN(dueDateObj.getTime())) {
-        return res.status(400).json({ error: "Invalid dueDate format" });
-      }
-
-      // Default: remind 1 hour before the due date
-      const remindAt = new Date(dueDateObj.getTime() - 60 * 60 * 1000);
-
-      // Insert the reminder
-      const reminderStmt = db.prepare(
-        "INSERT INTO reminders (userId, taskId, remindAt) VALUES (?, ?, ?)"
-      );
-      const reminderResult = reminderStmt.run(
-        req.userId,
-        taskId,
-        remindAt.toISOString()
-      );
-
-      // Send back task and reminder info
-      res.json({
-        id: taskId,
-        userId: req.userId,
-        title,
-        description,
-        dueDate,
-        completed: 0,
-        reminder: {
-          id: reminderResult.lastInsertRowid,
-          userId: req.userId,
-          taskId,
-          remindAt: remindAt.toISOString(),
-        },
-      });
-    } catch (err) {
-      console.error("Error creating task with reminder:", err);
-      res.status(500).json({ error: "Something went wrong", err });
+    if (!title || !description || !dueDate) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
-  });
+
+    // Insert the task
+    const stmt = db.prepare(
+      "INSERT INTO tasks (userId, title, description, dueDate) VALUES (?, ?, ?, ?)"
+    );
+    const result = stmt.run(req.userId, title, description, dueDate);
+
+    const taskId = result.lastInsertRowid;
+
+    // Validate the dueDate
+    const dueDateObj = new Date(dueDate);
+    if (isNaN(dueDateObj.getTime())) {
+      return res.status(400).json({ error: "Invalid dueDate format" });
+    }
+
+    // Default: remind 1 hour before the due date
+    const remindAt = new Date(dueDateObj.getTime() - 60 * 60 * 1000);
+
+    // Insert the reminder with task title as note
+    const reminderStmt = db.prepare(
+      "INSERT INTO reminders (userId, taskId, remindAt, note) VALUES (?, ?, ?, ?)"
+    );
+    const reminderResult = reminderStmt.run(
+      req.userId,
+      taskId,
+      remindAt.toISOString(),
+      title // store the task title as the reminder note
+    );
+
+    // Send back task and reminder info
+    res.json({
+      id: taskId,
+      userId: req.userId,
+      title,
+      description,
+      dueDate,
+      completed: 0,
+      reminder: {
+        id: reminderResult.lastInsertRowid,
+        userId: req.userId,
+        taskId,
+        remindAt: remindAt.toISOString(),
+        note: title
+      },
+    });
+  } catch (err) {
+    console.error("Error creating task with reminder:", err);
+    res.status(500).json({ error: "Something went wrong", err });
+  }
+});
+
 
   // READ all tasks for current user
   router.get("/", authMiddleware, (req, res) => {
     try {
-      const tasks = db
-        .prepare("SELECT * FROM tasks WHERE userId = ?")
-        .all(req.userId);
-        if(!tasks) return res.status(200).json({message:"no tasks yet. Create one!"})
+      const query = `
+        SELECT id, userId, title, description, dueDate, createdAt
+        FROM tasks
+        WHERE userId = ?
+        ORDER BY dueDate ASC
+      `;
 
-        const taskWithReminders = tasks.map((task) => {
-          const reminder = db
-            .prepare("SELECT * FROM reminders WHERE taskId = ? AND userId =?")
-            .get(task.id, req.userId);
-            
-          return { ...task, reminder };
-        });
+      const tasks = db.prepare(query).all(req.userId);
 
-      res.json(taskWithReminders);
+      console.log("Fetched tasks:", tasks);
+      res.json({ tasks });
     } catch (err) {
-      console.error("Error fetching tasks:", err);
-      res.status(500).json({ error: "Something went wrong" });
+      console.error("Error fetching tasks:", err.message);
+      res.status(500).json({ error: "Unable to fetch tasks" });
     }
   });
+
 
   // UPDATE task (supports partial update)
   router.put("/:id", authMiddleware, (req, res) => {
