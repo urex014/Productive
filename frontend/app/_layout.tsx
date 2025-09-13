@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { StatusBar, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import "./globals.css";
+import ChatRoom from "./chat/ChatRoom";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,6 +53,8 @@ export default function RootLayout() {
         {!hasOnboarded && <Stack.Screen name="onboarding" />}
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/register" />
+        <Stack.Screen name="chat/list" />
+        <Stack.Screen name="chat/ChatRoom" />
       </Stack>
     </>
   );

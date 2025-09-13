@@ -14,33 +14,40 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
-  try {
-    const res = await fetch(`${BASE_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    setLoading(true);
+    setError("");
 
-    const data = await res.json();
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (res.ok && data.token) {
-      // Store only if token exists
-      await AsyncStorage.setItem("token", data.token);
-      console.log("Logged in successfully!");
-      router.replace("/");
-    } else {
-      // If token is missing, clear old value instead of storing null/undefined
-      await AsyncStorage.removeItem("token");
-      console.warn("Login failed:", data.error || "No token returned");
-      
+      const data = await res.json();
+
+      if (res.ok && data.token && data.user) {
+        // Store token and user object
+        await AsyncStorage.setItem("token", data.token);
+        await AsyncStorage.setItem("user", JSON.stringify(data.user));
+
+        console.log("Logged in successfully!", data.user);
+
+        // Navigate to home/root
+        router.replace("/");
+      } else {
+        // Handle invalid credentials or missing token/user
+        setError(data.error || "Invalid credentials");
+        await AsyncStorage.removeItem("token");
+        await AsyncStorage.removeItem("user");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Login error:", err);
-    setTimeout(() => { setError("Login failed") }, 5000); // Clear error after 5 seconds
-    
-  }
-};
-
+  };
 
   return (
     <View className="flex-1 justify-center bg-primary px-6">
@@ -76,11 +83,12 @@ export default function LoginScreen() {
           {loading ? "Logging in..." : "Log In"}
         </Text>
       </TouchableOpacity>
+
       <View className="w-full items-center m-2">
-      <Text className="text-red-500 font-bold">{error}</Text>
+        <Text className="text-red-500 font-bold">{error}</Text>
       </View>
+
       <View className="flex-row justify-center mt-6">
-        
         <Text className="text-gray-400">Don’t have an account? </Text>
         <TouchableOpacity onPress={() => router.push("/auth/register")}>
           <Text className="text-white font-semibold">Sign Up</Text>

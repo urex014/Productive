@@ -1,29 +1,20 @@
-import { icons } from '@/constants/icons';
-import React from 'react';
-import { Image, TextInput, View } from 'react-native';
+// components/SearchBar.jsx
+import React from "react";
+import { View } from "react-native";
+import {  TextInput } from "react-native";
+import { Search } from 'lucide-react-native';
 
-interface Props{
-  placeholder: string;
-  onPress?:()=>void;
-  value?:string
-  onChangeText?:(text:string)=> void
-}
-
-
-const SearchBar = ({placeholder, onPress, value, onChangeText}:Props) => {
+export default function SearchBar({ query, setQuery }) {
   return (
-    <View className="flex-row bg-[#180822] items-center bg-dark-200 rounded-full px-5 py-2">
-      <Image source={icons.search} className='size-5' resizeMode='contain' tintColor="#ab8bff" />
+    <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-2 mx-4 my-4">
+      <Search size={20} />
       <TextInput
-        onPress={onPress}
-        placeholder={placeholder}
-        value={value}
-        onChangeText={onChangeText}
-        placeholderTextColor='#a8b5db'
-        className='flex-1 ml-2 text-white'
-        />
+        placeholder="Search users..."
+        value={query}
+        onChangeText={setQuery}
+        className="flex-1 ml-2 text-base text-gray-800"
+        placeholderTextColor="#9ca3af"
+      />
     </View>
-  )
+  );
 }
-
-export default SearchBar

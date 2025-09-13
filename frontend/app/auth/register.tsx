@@ -47,6 +47,8 @@ export default function RegisterScreen() {
 
       // Save token to AsyncStorage
       await AsyncStorage.setItem("token", data.token);
+      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      
 
       // Navigate to dashboard/home
       router.replace("/");

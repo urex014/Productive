@@ -11,6 +11,7 @@ import {
   Flame,
   Calendar,
   CheckCircle,
+  MessageCircle,
   Target,
   Bell,
   User,
@@ -113,11 +114,12 @@ export default function DashboardScreen() {
         <View className="flex-row justify-between mb-10">
           <TouchableOpacity
             className="flex-1 mx-2 bg-[#2563eb] rounded-2xl p-6 items-center"
-            onPress={() => router.push("/tasks")}
+            onPress={() => router.push("/chat/list")}
           >
-            <CheckCircle color="white" size={28} />
+            {/* <CheckCircle color="white" size={28} /> */}
+            <MessageCircle color="white" size={28} />
             <Text className="text-white mt-3 font-semibold text-sm">
-              Tasks
+              Chat
             </Text>
           </TouchableOpacity>
 
