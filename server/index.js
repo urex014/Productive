@@ -48,6 +48,11 @@ io.on("connection", (socket) => {
   const { chatId, senderId, message } = msg;
   const createdAt = new Date().toISOString();
 
+  if(!chatId || !senderId || !message) {
+    console.error("Invalid message payload:", msg);
+    return;
+  }
+
   // Save message into DB
   const stmt = db.prepare(
     "INSERT INTO messages (chatId, senderId, message, createdAt) VALUES (?, ?, ?, ?)"
@@ -63,7 +68,7 @@ io.on("connection", (socket) => {
     id: result.lastInsertRowid,
     chatId,
     senderId,
-    message, // ✅ frontend expects this
+    message, // i need this in frno3nd
     createdAt,
     senderName: sender?.username || "Unknown",
     senderImage:

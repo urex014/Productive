@@ -5,10 +5,10 @@ import {
   Text,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
   Modal,
-} from "react-native"
-import { ArrowLeft, Flame, Award, Clock } from "lucide-react-native"
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ArrowLeft, Flame, Award, Clock, ChevronLeft } from "lucide-react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useNavigation } from "@react-navigation/native"
 import Svg, { Circle } from "react-native-svg"
@@ -156,8 +156,8 @@ export default function StudyScreen() {
     <SafeAreaView className="flex-1 bg-black px-6">
       {/* Header */}
       <View className="flex-row items-center mt-4 mb-8">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-                  <Text className="text-blue-400 text-base">← Back</Text>
+        <TouchableOpacity className="mx-3" onPress={() => navigation.goBack()}>
+                  <ChevronLeft size={28} color={"white"} />
                 </TouchableOpacity>
         <Text className="text-white text-xl font-bold">Study Session</Text>
       </View>

@@ -5,53 +5,112 @@ const router = express.Router();
 
 export default function chatRoutes(db) {
   // Create a new chat (direct, group, or ai)
-   router.post("/", (req, res) => {
+router.post("/", (req, res) => {
     try {
-      const { type, name, participants } = req.body;
+      const { type, name, image, participants } = req.body;
 
-      if (!type || !["direct", "group", "ai"].includes(type)) {
+      // Validate type
+      if (!["direct", "group", "ai"].includes(type)) {
         return res.status(400).json({ error: "Invalid chat type" });
       }
 
-      // For direct chats, participants must be 2 users
-      if (type === "direct") {
-        if (!Array.isArray(participants) || participants.length !== 2) {
-          return res
-            .status(400)
-            .json({ error: "Direct chats require exactly 2 participants" });
+      // Validate participants array
+      if (!Array.isArray(participants) || participants.length === 0) {
+        return res.status(400).json({ error: "Participants are required" });
+      }
+
+      // Check all participants exist
+      const validParticipants = [];
+      for (const userId of participants) {
+        const userIdNum = Number(userId);
+        if (!userIdNum) {
+          return res.status(400).json({ error: "Invalid userId in participants" });
+        }
+
+        const userExists = db.prepare(`SELECT id FROM users WHERE id = ?`).get(userId);
+        if (!userExists) {
+          return res.status(400).json({ error: `User ${userIdNUm} does not exist` });
+        }
+
+        validParticipants.push(userIdNum);
+      }
+
+      // Prevent duplicate direct chats
+      if (type === "direct" && validParticipants.length === 2) {
+        const existingChat = db.prepare(`
+          SELECT c.id AS chatId
+          FROM chats c
+          JOIN chat_participants cp ON c.id = cp.chatId
+          WHERE c.type = 'direct'
+            AND c.id IN (
+              SELECT chatId FROM chat_participants WHERE userId = ? 
+              INTERSECT 
+              SELECT chatId FROM chat_participants WHERE userId = ?
+            )
+          LIMIT 1
+        `).get(participants[0], participants[1]);
+
+        if (existingChat) {
+          const chat = db.prepare(`
+            SELECT 
+              c.id AS chatId, 
+              c.type, 
+              c.name, 
+              c.image, 
+              c.createdAt,
+              GROUP_CONCAT(cp.userId) as participants
+            FROM chats c
+            LEFT JOIN chat_participants cp ON c.id = cp.chatId
+            WHERE c.id = ?
+            GROUP BY c.id
+          `).get(existingChat.chatId);
+
+          chat.participants = chat.participants
+            ? chat.participants.split(",").map(Number)
+            : [];
+          return res.json(chat);
         }
       }
 
-      // For group chats, at least 2 participants
-      if (type === "group") {
-        if (!Array.isArray(participants) || participants.length < 2) {
-          return res
-            .status(400)
-            .json({ error: "Group chats require at least 2 participants" });
-        }
-      }
+      // Insert new chat
+      const chatResult = db
+        .prepare(`INSERT INTO chats (type, name, image) VALUES (?, ?, ?)`)
+        .run(type, name || null, image || null);
 
-      // Create the chat
-      const stmt = db.prepare(`INSERT INTO chats (type, name) VALUES (?, ?)`);
-      const result = stmt.run(type, name || null);
-      const chatId = result.lastInsertRowid;
+      const chatId = chatResult.lastInsertRowid;
 
-      // Add participants if they exist
-      if (Array.isArray(participants) && participants.length > 0) {
-        const insertParticipant = db.prepare(
-          `INSERT INTO chat_participants (chatId, userId) VALUES (?, ?)`
-        );
-        participants.forEach((userId) => {
-          if (userId) insertParticipant.run(chatId, userId);
-        });
-      }
+      // Insert participants
+      const insertParticipant = db.prepare(
+        `INSERT INTO chat_participants (chatId, userId) VALUES (?, ?)`
+      );
+      validParticipants.forEach((userId) => insertParticipant.run(chatId, userId));
 
-      res.json({ chatId, type, name, participants });
+      // Fetch full chat object
+      const chat = db.prepare(`
+        SELECT 
+          c.id AS chatId, 
+          c.type, 
+          c.name, 
+          c.image, 
+          c.createdAt,
+          GROUP_CONCAT(cp.userId) as participants
+        FROM chats c
+        LEFT JOIN chat_participants cp ON c.id = cp.chatId
+        WHERE c.id = ?
+        GROUP BY c.id
+      `).get(chatId);
+
+      chat.participants = chat.participants
+        ? chat.participants.split(",").map(Number)
+        : [];
+
+      return res.json(chat);
     } catch (err) {
       console.error("Error creating chat:", err);
-      res.status(500).json({ error: "Failed to create chat" });
+      res.status(500).json({ error: "Internal server error" });
     }
   });
+
 
 
 

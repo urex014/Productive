@@ -11,7 +11,7 @@ import {
   TextInput,
   ScrollView,
 } from "react-native"
-import { BlurView } from "expo-blur"
+
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as ImagePicker from "expo-image-picker"
 import { router } from "expo-router"
@@ -136,7 +136,7 @@ export default function ProfileScreen() {
       <Text className="text-white text-2xl font-bold mb-6">Profile</Text>
 
       {/* User Card */}
-      <BlurView intensity={70} tint="dark" className="rounded-2xl p-6 items-center mb-6">
+      <View className="rounded-[8px] p-6 items-center bg-slate-900 mb-6">
         <Image
           source={{
             uri: user?.image || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
         />
         <Text className="text-white text-xl font-semibold">{user?.username}</Text>
         <Text className="text-gray-400 text-sm">{user?.email}</Text>
-      </BlurView>
+      </View>
 
       {/* Actions */}
       <TouchableOpacity
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
         className="bg-yellow-500 p-4 rounded-xl mb-4 items-center"
         onPress={() => setPasswordModalVisible(true)}
       >
-        <Text className="text-black font-semibold">Change Password</Text>
+        <Text className="text-white font-semibold">Change Password</Text>
       </TouchableOpacity>
 
       <TouchableOpacity

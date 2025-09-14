@@ -11,6 +11,7 @@ import {
 import { useRouter } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { CalendarPlus, ChevronLeft } from "lucide-react-native"
 
 const daysOfWeek = [
   "Monday",
@@ -148,11 +149,14 @@ export default function TimetablePage() {
       {/* Header */}
       <View className="flex-row items-center justify-between p-4 bg-gray-900">
         <TouchableOpacity onPress={() => router.back()}>
-          <Text className="text-blue-400 text-base">← Back</Text>
+          <Text className="text-blue-400 text-base"><ChevronLeft size={24} color={"white"} /></Text>
         </TouchableOpacity>
         <Text className="text-white text-lg font-bold">Weekly Timetable</Text>
         <TouchableOpacity onPress={addTimeSlot}>
-          <Text className="text-green-400 font-semibold">+ Slot</Text>
+          <View className=" flex items-center">
+          <CalendarPlus size={24} color={"white"} />
+          <Text className="text-green-400 font-semibold">new time Slot</Text>
+          </View>
         </TouchableOpacity>
       </View>
 

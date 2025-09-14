@@ -92,7 +92,7 @@ export default function ChatRoom() {
     const msg = {
       chatId,
       senderId: userId,
-      text: newMessage,
+      message: newMessage,
     };
 
     // ✅ Only emit — server echoes back via `receiveMessage`
@@ -148,7 +148,7 @@ export default function ChatRoom() {
                 {item.senderName || "User"}
               </Text>
             )}
-            <Text className="text-white">{item.text}</Text>
+            <Text className="text-white">{item.message}</Text>
           </View>
         )}
         contentContainerStyle={{ padding: 10 }}

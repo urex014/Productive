@@ -4,7 +4,8 @@ import Database from "better-sqlite3";
 
 const db = new Database("amara.db");
 db.pragma("foreign_keys = ON");
-
+db.pragma("journal_mode = WAL");
+db.pragma("synchronous = NORMAL");
 // USERS TABLE
 //add school, course and other shit to db before deploymment 
 db.prepare(`
@@ -102,9 +103,11 @@ db.prepare(`
     chatId INTEGER NOT NULL,
     userId INTEGER NOT NULL,
     FOREIGN KEY (chatId) REFERENCES chats(id) ON DELETE CASCADE,
-    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(chatId, userId) -- prevent duplicate participants in the same chat
   )
 `).run();
+
 
 // MESSAGES TABLE
 db.prepare(`

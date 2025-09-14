@@ -10,8 +10,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const defaultScreenOptions = useMemo(() => ({ headerShown: false }), []);
-  const [loading, setLoading] = useState(true);
-  const [hasOnboarded, setHasOnboarded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasOnboarded, setHasOnboarded] = useState(true);
   const [showSecondSplash, setShowSecondSplash] = useState(true);
 
   useEffect(() => {
