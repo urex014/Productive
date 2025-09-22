@@ -15,17 +15,22 @@ import profileRoutes from "./routes/profile.js";
 import statsRoutes from "./routes/stats.js";
 import timetableRoutes from "./routes/timetable.js";
 import chatRoutes from "./routes/chat.js";
-
+import path from 'path'
+import notificationRoutes from './routes/notification.js'
 import db from "./db/db.js"; // ✅ new DB import
+import { fileURLToPath } from "url";
 
 dotenv.config();
-
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename)
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
 app.use(bodyParser.urlencoded({ limit: "60mb", extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -123,6 +128,7 @@ app.use("/api/reminders", remindersRoutes(db));
 app.use("/api/profile", profileRoutes(db));
 app.use("/api/stats", statsRoutes(db));
 app.use("/api/timetable", timetableRoutes(db));
+app.use('/api/notify', notificationRoutes)
 app.use("/api/chats", chatRoutes(db));
 
 // Debug route

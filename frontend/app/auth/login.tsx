@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {registerForPushNotificationAsync} from '../notification.js'
 
 export default function LoginScreen() {
   const BASE_URL = "http://192.168.100.30:5000";
@@ -29,9 +30,22 @@ export default function LoginScreen() {
       if (res.ok && data.token && data.user) {
         // Store token and user object
         await AsyncStorage.setItem("token", data.token);
+        // Save userId to AsyncStorage
+        await AsyncStorage.setItem("userId", String(data.user.id));
+
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
-        console.log("Logged in successfully!", data.user);
+        const expoPushToken = await registerForPushNotificationAsync();
+        if(expoPushToken){
+          await fetch(`${BASE_URL}/api/profile/push-token`, {
+            method:"POST",
+            headers:{
+              'content-Type':'application/json',
+              Authorization: `Bearer ${data.token}`,
+            },
+            body:JSON.stringify({expoPushToken})
+          })
+        }
 
         // Navigate to home/root
         router.replace("/");

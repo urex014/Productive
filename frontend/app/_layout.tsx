@@ -5,7 +5,7 @@ import { StatusBar, View, Text, StyleSheet, ActivityIndicator } from "react-nati
 import * as SplashScreen from "expo-splash-screen";
 import "./globals.css";
 import ChatRoom from "./chat/ChatRoom";
-
+import {SocketProvider} from './context/socketContext.js';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -48,6 +48,7 @@ export default function RootLayout() {
 
   return (
     <>
+    <SocketProvider>
       <StatusBar hidden={true} />
       <Stack screenOptions={defaultScreenOptions}>
         {!hasOnboarded && <Stack.Screen name="onboarding" />}
@@ -56,6 +57,7 @@ export default function RootLayout() {
         <Stack.Screen name="chat/list" />
         <Stack.Screen name="chat/ChatRoom" />
       </Stack>
+      </SocketProvider>
     </>
   );
 }

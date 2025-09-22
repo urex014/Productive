@@ -61,7 +61,7 @@ export default function DashboardScreen() {
     fetchAll()
 
     // poll every 10 seconds
-    const interval = setInterval(fetchAll, 10000)
+    const interval = setInterval(fetchAll, 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -91,7 +91,7 @@ export default function DashboardScreen() {
           >
             {user?.image ? (
               <Image
-                source={{ uri: user.image }}
+                source={{ uri: user.image?`${BASE_URL}${user.image}`:"https://cdn-icons-png.flaticon.com/512/149/149071.png" }}
                 className="w-12 h-12 rounded-full"
                 resizeMode="cover"
               />

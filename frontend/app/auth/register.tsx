@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
 import { useRouter } from "expo-router";
+import registerForPushNotificationAsync from '../notification.js'
 import AsyncStorage from "@react-native-async-storage/async-storage"; // For storing token
 
 export default function RegisterScreen() {
@@ -48,6 +49,17 @@ export default function RegisterScreen() {
       // Save token to AsyncStorage
       await AsyncStorage.setItem("token", data.token);
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      const expoPushToken = await registerForPushNotificationAsync();
+              if(expoPushToken){
+                await fetch(`${BASE_URL}/api/users/push-token`, {
+                  method:"POST",
+                  headers:{
+                    'content-Type':'application/json',
+                    Authorization: `Bearer ${data.token}`,
+                  },
+                  body:JSON.stringify({expoPushToken})
+                })
+              }
       
 
       // Navigate to dashboard/home

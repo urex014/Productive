@@ -139,7 +139,7 @@ export default function ProfileScreen() {
       <View className="rounded-[8px] p-6 items-center bg-slate-900 mb-6">
         <Image
           source={{
-            uri: user?.image || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+            uri: `${API_BASE}${user?.image} `|| "https://cdn-icons-png.flaticon.com/512/149/149071.png",
           }}
           className="w-24 h-24 rounded-full mb-4"
         />

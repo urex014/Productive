@@ -13,97 +13,98 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import io from "socket.io-client";
 import { ChevronLeft } from "lucide-react-native";
-
-const SOCKET_URL = "http://192.168.100.30:5000"; // adjust to your backend IP
+import {useSocket }from '../context/socketContext.js';
 
 export default function ChatRoom() {
-  const { chatId, chatName, profilePic } = useLocalSearchParams();
+  const BASE_URL = 'http://192.168.100.30:5000';
+  const { chatId, displayName, displayImage } = useLocalSearchParams();
+  // console.info(displayImage)
   const router = useRouter();
+  const { socket, isConnected } = useSocket(); // global socket instance
 
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const flatListRef = useRef(null);
   const [userId, setUserId] = useState(null);
+  const flatListRef = useRef(null);
 
-  const socketRef = useRef(null);
-
-  // Load logged-in user id
+  // Load logged-in user id once
   useEffect(() => {
     const loadUser = async () => {
       const stored = await AsyncStorage.getItem("user");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUserId(parsed.id);
-      }
+      if (stored) setUserId(JSON.parse(stored).id);
     };
     loadUser();
   }, []);
 
-  // Setup WebSocket connection
-  useEffect(() => {
+  // Fetch chat info + messages
+  const fetchChat = async () => {
     if (!chatId) return;
+    setLoading(true);
 
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.log("Connected to socket:", socket.id);
-      socket.emit("joinRoom", chatId);
-    });
-
-    // ✅ Only one listener: server always emits `receiveMessage`
-    socket.on("receiveMessage", (msg) => {
-      console.log("📩 Received:", msg);
-      setMessages((prev) => [...prev, msg]);
-      flatListRef.current?.scrollToEnd({ animated: true });
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [chatId]);
-
-  // Fetch old messages once (history)
-  const fetchMessages = async () => {
     try {
-      const res = await fetch(
-        `http://192.168.100.30:5000/api/chats/${chatId}/messages`
-      );
+      console.log("Fetching chat with ID:", chatId);
+
+      const res = await fetch(`http://192.168.100.30:5000/api/chats/${chatId}/messages`);
+      if (!res.ok) throw new Error("Failed to fetch chat");
       const data = await res.json();
-      setMessages(data);
+
+      setMessages(data || []);
     } catch (err) {
-      console.error("Error fetching messages:", err);
+      console.error("Error fetching chat:", err);
     } finally {
       setLoading(false);
     }
   };
 
+
   useEffect(() => {
-    fetchMessages();
+    fetchChat();
   }, [chatId]);
+
+  // WebSocket: join room and listen for new messages
+  useEffect(() => {
+    if (!socket || !isConnected || !chatId) return;
+
+    socket.emit("joinRoom", chatId);
+
+    const handleMessage = (msg) => {
+      setMessages((prev) => [...prev, msg]);
+      flatListRef.current?.scrollToEnd({ animated: true });
+    };
+
+    socket.on("receiveMessage", handleMessage);
+
+    return () => {
+      socket.off("receiveMessage", handleMessage);
+      socket.emit("leaveRoom", chatId);
+    };
+  }, [socket, isConnected, chatId]);
 
   // Send message
   const sendMessage = () => {
-    if (!newMessage.trim() || !userId) return;
+    if (!newMessage.trim() || !userId || !socket) return;
 
-    const msg = {
+    socket.emit("sendMessage", {
       chatId,
       senderId: userId,
       message: newMessage,
-    };
+    });
 
-    // ✅ Only emit — server echoes back via `receiveMessage`
-    socketRef.current.emit("sendMessage", msg);
     setNewMessage("");
   };
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-900">
+      <View className="flex-1 justify-center items-center bg-primary">
+        <View className="mb-4">
+          <TouchableOpacity className="ml-5 mb-3" onPress={() => router.back()}>
+                  <ChevronLeft size={24} color="white" />
+                </TouchableOpacity>
+        </View>
         <ActivityIndicator size="large" color="#fff" />
+        <Text className="text-white mt-3">getting chats...</Text>
       </View>
     );
   }
@@ -116,34 +117,33 @@ export default function ChatRoom() {
       {/* Chat Header */}
       <View className="flex-row items-center p-4 border-b border-gray-800 bg-primary">
         <TouchableOpacity onPress={() => router.back()} className="mr-4">
-          <ChevronLeft size={24} color={"white"} />
+          <ChevronLeft size={24} color="white" />
         </TouchableOpacity>
-        {profilePic ? (
+        {displayImage ? (
           <Image
-            source={{ uri: profilePic }}
+            source={{ uri: displayImage }}
             className="w-10 h-10 rounded-full mr-3"
           />
         ) : (
-          <View className="w-10 h-10 rounded-full bg-gray-400 mr-3" />
+          <Image source={'https://img.icons8.com/ios-filled/100/user-male-circle.png'} className="w-10 h-10 rounded-full mr-3" />
         )}
-        <Text className="text-white text-xl font-bold">{chatName}</Text>
+        <Text className="text-white text-xl font-bold">{displayName}</Text>
       </View>
 
       {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id?.toString()} // ✅ use DB id only
+        keyExtractor={(item) => item.id?.toString()}
         renderItem={({ item }) => (
           <View
             className={`p-3 my-1 rounded-2xl max-w-[75%] ${
-              item.senderId == userId
+              item.senderId === userId
                 ? "bg-blue-600 self-end rounded-br-none"
                 : "bg-gray-700 self-start rounded-bl-none"
             }`}
           >
-            {/* Show sender name for received messages */}
-            {item.senderId != userId && (
+            {item.senderId !== userId && (
               <Text className="text-gray-300 text-xs mb-1">
                 {item.senderName || "User"}
               </Text>
@@ -152,6 +152,11 @@ export default function ChatRoom() {
           </View>
         )}
         contentContainerStyle={{ padding: 10 }}
+        ListEmptyComponent={
+          <Text className="text-gray-400 text-center mt-4">
+            No messages yet. Start the conversation!
+          </Text>
+        }
         onContentSizeChange={() =>
           flatListRef.current?.scrollToEnd({ animated: true })
         }

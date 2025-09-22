@@ -135,12 +135,11 @@ export default function StudyScreen() {
         current: data.currentStreak,
         longest: data.longestStreak,
       })
-
-      Alert.alert("Streak Updated!", `🔥 Current: ${data.currentStreak}\n🏆 Longest: ${data.longestStreak}`)
       resetTimer()
     } catch (err) {
       console.error("Streak update failed", err)
-      Alert.alert("Error", "Could not update streak")
+      Alert.alert("Error", "Network error. Could not update streak")
+      resetTimer()
     }
   }
 
@@ -164,6 +163,11 @@ export default function StudyScreen() {
 
       {/* Timer */}
       <View className="flex-1 justify-center items-center">
+        <View className="flex-1 justify-center items-center mb-4 px-4">
+        <Text className="text-white font-bold">Just so you know... If you leave this page, your streaks wont update.
+          SO STAY FOCUSED!
+        </Text>
+        </View>
         <Svg height="280" width="280" className="mb-6">
           <Circle
             stroke="#2d2d2d"

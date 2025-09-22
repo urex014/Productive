@@ -176,6 +176,7 @@ router.post("/", (req, res) => {
       res.status(500).json({ error: "Failed to fetch chat list" });
     }
   });
+  
 
   // Get messages for a chat
   router.get("/:chatId/messages", (req, res) => {

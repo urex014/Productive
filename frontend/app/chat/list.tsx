@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Pressable,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,23 +19,20 @@ import { SearchX, ChevronLeft } from "lucide-react-native";
 export default function ChatList() {
   const router = useRouter();
 
-  const [userId, setUserId] = useState(null); // user ID from storage
+  const [userId, setUserId] = useState(null);
   const [chats, setChats] = useState([]);
   const [filteredChats, setFilteredChats] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-
-
+  const BASE_API = 'http://192.168.100.30:5000'
 
   // Load userId from AsyncStorage
   useEffect(() => {
     const fetchUserId = async () => {
       try {
-        const keys = await AsyncStorage.getAllKeys();
-        console.log("All keys:", keys);
         const storedId = await AsyncStorage.getItem("userId");
-        if (storedId) setUserId(Number(storedId)); // convert to number
+        if (storedId) setUserId(Number(storedId));
         else console.error("No user ID found in storage");
       } catch (err) {
         console.error("Error getting userId from AsyncStorage", err);
@@ -43,21 +41,21 @@ export default function ChatList() {
     fetchUserId();
   }, []);
 
-  // Fetch chats once userId is loaded
+  // Fetch chats when userId is available
   useEffect(() => {
     if (!userId) return;
 
     const fetchChats = async () => {
       try {
-        const res = await fetch(`http://192.168.100.30:5000/api/chats/user/${userId}`);
+        const res = await fetch(
+          `http://192.168.100.30:5000/api/chats/user/${userId}`
+        );
         if (!res.ok) throw new Error("Failed to fetch chats");
         const data = await res.json();
         setChats(data);
         setFilteredChats(data);
       } catch (err) {
         console.error("Error fetching chats:", err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -70,7 +68,7 @@ export default function ChatList() {
   const searchUsers = async (text) => {
     setQuery(text);
 
-    if (text.trim() === "") {
+    if (!text.trim()) {
       setSearchResults([]);
       setFilteredChats(chats);
       return;
@@ -78,7 +76,9 @@ export default function ChatList() {
 
     try {
       const res = await fetch(
-        `http://192.168.100.30:5000/api/chats/search/users?q=${encodeURIComponent(text)}`
+        `http://192.168.100.30:5000/api/chats/search/users?q=${encodeURIComponent(
+          text
+        )}`
       );
       if (!res.ok) throw new Error("Failed to search users");
       const data = await res.json();
@@ -88,14 +88,9 @@ export default function ChatList() {
     }
   };
 
-  // Start a direct chat
-  const startChat = async (otherUserId, otherUsername, otherImage) => {
-    if (!userId || !otherUserId) {
-      console.error("Invalid participant IDs", { userId, otherUserId });
-      Alert.alert("Error", "Invalid participant IDs");
-      return;
-    }
-
+  // Start a direct chat and navigate to ChatRoom
+  const startChat = async (otherUserId) => {
+    setLoading(true);
     try {
       const res = await fetch("http://192.168.100.30:5000/api/chats", {
         method: "POST",
@@ -107,92 +102,96 @@ export default function ChatList() {
       });
 
       const chat = await res.json();
-      console.log("Chat response:", chat);
-
       if (chat.error) {
-        console.error("Error creating chat:", chat.error);
         Alert.alert("Error", chat.error);
         return;
       }
 
+      await AsyncStorage.setItem("activeChat", JSON.stringify(chat));
+
+      // Navigate to ChatRoom with chatId and the rest 
       router.push({
-        pathname: "chat/ChatRoom",
+        pathname: "/chat/ChatRoom",
         params: {
           chatId: chat.id,
-          chatName: otherUsername,
-          profilePic: otherImage || "https://img.icons8.com/ios-filled/100/user-male-circle.png",
-          type: chat.type,
+          displayName: chat.displayName || "New chat",
+          displayImage: `${BASE_API}${chat.displayImage}` || null
         },
       });
     } catch (err) {
       console.error("Error starting chat:", err);
-      Alert.alert("Error", "Failed to start chat");
+      Alert.alert("Error", "Something went wrong while starting the chat");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Render a chat
+  // Render existing chat
   const renderChatItem = ({ item }) => {
     const isAI = item.type === "ai";
     const profilePic = isAI
       ? "https://img.icons8.com/color/96/bot.png"
-      : item.displayImage || "https://img.icons8.com/ios-filled/100/user-male-circle.png";
+      : `${BASE_API}${item.displayImage}` ||
+        "https://img.icons8.com/ios-filled/100/user-male-circle.png";
 
     return (
-      <TouchableOpacity
-        className="flex-row items-center px-4 py-3 border-b border-gray-800"
-        onPress={() =>
+      <Pressable
+        className="flex-row items-center px-4 py-3 border-b border-neutral-700"
+        onPress={() => {
           router.push({
-            pathname: "/ChatRoom",
-            params: {
-              chatId: item.id,
-              chatName: item.displayName,
-              profilePic,
-              type: item.type,
-            },
-          })
-        }
+            pathname: "/chat/ChatRoom",
+            params: { chatId: item.id,
+                      displayName:item.displayName,
+                      displayImage:`${BASE_API}${item.displayImage}`
+                },
+          });
+        }}
       >
-        <Image source={{ uri: profilePic }} className="w-12 h-12 rounded-full mr-4" />
+        <Image
+          source={{ uri: profilePic }}
+          className="w-12 h-12 rounded-full mr-4"
+        />
         <View className="flex-1">
-          <Text className="text-base font-semibold text-white">{item.displayName}</Text>
-          <Text className="text-sm text-gray-400 mt-0.5">
+          <Text className="text-white font-semibold text-base">
+            {item.displayName}
+          </Text>
+          <Text className="text-gray-400 text-sm mt-1">
             {isAI ? "Your productivity assistant" : item.lastMessage || "Tap to chat"}
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
-  // Render user search result
+  // Render search result user
   const renderUserItem = ({ item }) => (
-    <TouchableOpacity
-      className="flex-row w-full items-center px-4 py-3 border-b border-gray-800"
-      onPress={() => startChat(item.id, item.username, item.image)}
+    <Pressable
+      className="flex-row items-center px-4 py-3 border-b border-neutral-700"
+      onPress={() => startChat(item.id)}
     >
       <Image
-        source={{ uri: item.image || "https://img.icons8.com/ios-filled/100/user-male-circle.png" }}
+        source={{
+          uri:
+            item.image ||
+            "https://img.icons8.com/ios-filled/100/user-male-circle.png",
+        }}
         className="w-12 h-12 rounded-full mr-4"
       />
-      <Text className="text-base font-semibold text-white">{item.username}</Text>
-    </TouchableOpacity>
+      <Text className="text-white font-semibold text-base">{item.username}</Text>
+    </Pressable>
   );
-
-  if (loading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-primary">
-        <ActivityIndicator size="large" color="#fff" />
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 pt-12 bg-primary">
+      {/* Back button */}
       <TouchableOpacity className="ml-5 mb-3" onPress={() => router.back()}>
         <ChevronLeft size={24} color="white" />
       </TouchableOpacity>
 
+      {/* Search bar */}
       <SearchBar query={query} setQuery={searchUsers} />
 
+      {/* Chat list or search results */}
       {query.trim() && searchResults.length > 0 ? (
         <FlatList
           data={searchResults}
@@ -207,11 +206,20 @@ export default function ChatList() {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       ) : (
-        <View className="flex-1 justify-center px-12 items-center">
+        <View className="flex-1 justify-center items-center px-12">
           <SearchX size={80} color="white" />
-          <Text className="text-gray-400 font-bold text-center">
-            No chats available. Search for users using their username or email to start a new chat!
+          <Text className="text-gray-400 font-bold text-center mt-4">
+            No chats available. Search for users using their username or email
+            to start a new chat!
           </Text>
+        </View>
+      )}
+
+      {/* Loading overlay */}
+      {loading && (
+        <View className="absolute inset-0 bg-black/60 justify-center items-center z-50">
+          <ActivityIndicator size="large" color="#fff" />
+          <Text className="text-white mt-3">Starting chat...</Text>
         </View>
       )}
     </SafeAreaView>
