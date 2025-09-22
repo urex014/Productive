@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895415227478",
+    "project_id": "cloud-messaging-58fdd",
+    "storage_bucket": "cloud-messaging-58fdd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895415227478:android:4a601755d69f7b48c997f7",
+        "android_client_info": {
+          "package_name": "com.Amara.Amara"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyp1drNmXPcWwc_kbAR6nVKI-UZliGxwI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

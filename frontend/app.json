@@ -14,9 +14,11 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/connect-logo.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#000000",
+        "googleServicesFile": "./android/app/google-services.json"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.anonymous.Amara"
     },
     "web": {
       "bundler": "metro",
@@ -37,6 +39,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "523f070e-e4fa-43fa-9c17-4fb2a4c303b5"
+      }
     }
   }
 }
