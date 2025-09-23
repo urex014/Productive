@@ -14,13 +14,16 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ChevronLeft } from "lucide-react-native";
-import {useSocket }from '../context/socketContext.js';
+import { useSocket } from "../context/socketContext.js";
+
+// ✅ Import push notification hook
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 export default function ChatRoom() {
-  const BASE_URL = 'http://192.168.100.30:5000';
+  const BASE_URL = "http://192.168.100.30:5000";
   const { chatId, displayName, displayImage } = useLocalSearchParams();
-  // console.info(displayImage)
   const router = useRouter();
+
   const { socket, isConnected } = useSocket(); // global socket instance
 
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,9 @@ export default function ChatRoom() {
   const [newMessage, setNewMessage] = useState("");
   const [userId, setUserId] = useState(null);
   const flatListRef = useRef(null);
+
+  // ✅ Get push notification state from hook
+  const { expoPushToken, notification } = usePushNotifications();
 
   // Load logged-in user id once
   useEffect(() => {
@@ -38,6 +44,22 @@ export default function ChatRoom() {
     loadUser();
   }, []);
 
+  // ✅ Send push token to backend when available
+  useEffect(() => {
+    if (expoPushToken && userId) {
+      fetch(`${BASE_URL}/api/users/push-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          token: expoPushToken.data,
+        }),
+      }).catch((err) =>
+        console.error("Failed to send push token:", err)
+      );
+    }
+  }, [expoPushToken, userId]);
+
   // Fetch chat info + messages
   const fetchChat = async () => {
     if (!chatId) return;
@@ -46,7 +68,9 @@ export default function ChatRoom() {
     try {
       console.log("Fetching chat with ID:", chatId);
 
-      const res = await fetch(`http://192.168.100.30:5000/api/chats/${chatId}/messages`);
+      const res = await fetch(
+        `${BASE_URL}/api/chats/${chatId}/messages`
+      );
       if (!res.ok) throw new Error("Failed to fetch chat");
       const data = await res.json();
 
@@ -57,7 +81,6 @@ export default function ChatRoom() {
       setLoading(false);
     }
   };
-
 
   useEffect(() => {
     fetchChat();
@@ -72,6 +95,13 @@ export default function ChatRoom() {
     const handleMessage = (msg) => {
       setMessages((prev) => [...prev, msg]);
       flatListRef.current?.scrollToEnd({ animated: true });
+
+      // ✅ When a new message arrives, you can also trigger a local notification
+      //    (This is optional – backend usually handles pushes for background)
+      if (msg.senderId !== userId) {
+        // foreground notification handling
+        console.log("New incoming message:", msg.message);
+      }
     };
 
     socket.on("receiveMessage", handleMessage);
@@ -99,9 +129,12 @@ export default function ChatRoom() {
     return (
       <View className="flex-1 justify-center items-center bg-primary">
         <View className="mb-4">
-          <TouchableOpacity className="ml-5 mb-3" onPress={() => router.back()}>
-                  <ChevronLeft size={24} color="white" />
-                </TouchableOpacity>
+          <TouchableOpacity
+            className="ml-5 mb-3"
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={24} color="white" />
+          </TouchableOpacity>
         </View>
         <ActivityIndicator size="large" color="#fff" />
         <Text className="text-white mt-3">getting chats...</Text>
@@ -125,7 +158,12 @@ export default function ChatRoom() {
             className="w-10 h-10 rounded-full mr-3"
           />
         ) : (
-          <Image source={'https://img.icons8.com/ios-filled/100/user-male-circle.png'} className="w-10 h-10 rounded-full mr-3" />
+          <Image
+            source={{
+              uri: "https://img.icons8.com/ios-filled/100/user-male-circle.png",
+            }}
+            className="w-10 h-10 rounded-full mr-3"
+          />
         )}
         <Text className="text-white text-xl font-bold">{displayName}</Text>
       </View>
