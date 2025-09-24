@@ -179,7 +179,7 @@ export default function ChatRoom() {
       <View key={item} className={`flex-row mb-4 ${item % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
         {item % 2 === 0 ? (
           // Outgoing message
-          <View className="flex-row mr-4 items-end space-x-2 w-[70%]">
+          <View className="flex-row mr-4 items-end space-x-2 w-[40%]">
             <View className="flex-1 bg-blue-500 rounded-2xl rounded-tr-none p-3">
               <View className="h-4 bg-blue-400 rounded-full mb-1 w-3/4"></View>
             </View>
@@ -187,7 +187,7 @@ export default function ChatRoom() {
           </View>
         ) : (
           // Incoming message
-          <View className="flex-row items-end space-x-2 max-w-[80%]">
+          <View className="flex-row items-end space-x-2 w-[40%]">
             {/* <View className="w-6 h-6 bg-gray-600 rounded-full"></View> */}
             <View className="flex-1 bg-gray-700 rounded-2xl rounded-tl-none p-3">
               <View className="h-4 bg-gray-600 rounded-full w-1/2"></View>
