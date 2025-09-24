@@ -1,5 +1,6 @@
 import express from "express";
 import authMiddleware from "../middelwares/authMiddleware.js";
+  import fetch from "node-fetch"; // Make sure you have node-fetch installed
 
 const router = express.Router();
 
@@ -202,56 +203,102 @@ router.post("/", (req, res) => {
   });
 
   // Send a message in a chat
-  router.post("/:chatId/messages", (req, res) => {
-    try {
-      const { chatId } = req.params;
-      const { senderId, message } = req.body;
 
-      if (!message) {
-        return res.status(400).json({ error: "Message text is required" });
-      }
 
-      const stmt = db.prepare(
-        `INSERT INTO messages (chatId, senderId, message) VALUES (?, ?, ?)`
+  router.post("/:chatId/messages", async (req, res) => {
+  console.log("route is hitting")
+  try {
+    const { chatId } = req.params;
+    const { senderId, message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: "Message text is required" });
+    }
+
+    // 1. Insert the new message
+    const stmt = db.prepare(
+      `INSERT INTO messages (chatId, senderId, message) VALUES (?, ?, ?)`
+    );
+    const result = stmt.run(chatId, senderId || null, message);
+
+    const newMessage = {
+      id: result.lastInsertRowid,
+      chatId,
+      senderId: senderId || null,
+      message,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 2. Fetch chat type
+    const chat = db.prepare("SELECT type FROM chats WHERE id = ?").get(chatId);
+
+    // 3. AI auto-reply if chat type is 'ai'
+    if (chat?.type === "ai" && senderId) {
+      const aiReply = `AI: I received your message "${message}"`;
+      const aiStmt = db.prepare(
+        `INSERT INTO messages (chatId, senderId, message) VALUES (?, NULL, ?)`
       );
-      const result = stmt.run(chatId, senderId || null, message);
+      const aiResult = aiStmt.run(chatId, aiReply);
 
-      const newMessage = {
-        id: result.lastInsertRowid,
+      newMessage.aiReply = {
+        id: aiResult.lastInsertRowid,
         chatId,
-        senderId: senderId || null,
-        message,
+        senderId: null,
+        message: aiReply,
         createdAt: new Date().toISOString(),
       };
-
-      // If AI chat, add automatic reply stub
-      const chat = db
-        .prepare("SELECT type FROM chats WHERE id = ?")
-        .get(chatId);
-
-      if (chat?.type === "ai" && senderId) {
-        const aiReply = `AI: I received your message "${message}"`;
-
-        const aiStmt = db.prepare(
-          `INSERT INTO messages (chatId, senderId, message) VALUES (?, NULL, ?)`
-        );
-        const aiResult = aiStmt.run(chatId, aiReply);
-
-        newMessage.aiReply = {
-          id: aiResult.lastInsertRowid,
-          chatId,
-          senderId: null,
-          message: aiReply,
-          createdAt: new Date().toISOString(),
-        };
-      }
-
-      res.json(newMessage);
-    } catch (err) {
-      console.error("Error sending message:", err);
-      res.status(500).json({ error: "Failed to send message" });
     }
-  });
+
+    // 4. Fetch all participants except the sender
+    const participants = db
+      .prepare(`
+        SELECT u.id, u.username, u.expoPushToken
+        FROM users u
+        JOIN chat_participants cp ON u.id = cp.userId
+        WHERE cp.chatId = ? AND u.id != ?
+      `)
+      .all(chatId, senderId);
+      console.info("participants for chats", chatId, participants)
+    // 5. Send push notifications to each participant
+    await Promise.all(
+      
+      participants.map(async (user) => {
+        console.log("Sending push to users:", participants.map(u => u.expoPushToken));
+
+        
+        if (!user.expoPushToken) {
+          console.warn("user.expoPushToken dosent exist")
+          return;
+        }
+
+        try {
+          const res = await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: user.expoPushToken,
+              sound: "default",
+              title: `New message from ${user.username}`,
+              body: message,
+              data: { chatId, senderId, type: "chat_message" },
+            }),
+          });
+          const data = await res.json();
+          console.log("Expo push res", data)
+        } catch (err) {
+          console.error(`Failed to send push to user ${user.id}:`, err);
+        }
+      })
+    );
+
+    // 6. Return the message object
+    res.json(newMessage);
+  } catch (err) {
+    console.error("Error sending message:", err);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
   // Search for users (by username or email)
 router.get("/search/users", (req, res) => {
     try {

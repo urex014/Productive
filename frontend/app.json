@@ -15,10 +15,15 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/connect-logo.png",
         "backgroundColor": "#000000",
-        "googleServicesFile": "./android/app/google-services.json"
+        "googleServicesFile": "./google-services.json",
+        "package":"com.Amara.Amara"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Amara"
+      "package": "com.anonymous.Amara",
+      "notification":{
+        "icon":"./assets/images/connect-logo.png",
+        "color":"#ffffff"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -35,7 +40,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

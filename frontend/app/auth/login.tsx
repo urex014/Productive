@@ -1,14 +1,16 @@
 // app/auth/login.tsx
 import React, { useState } from "react";
-import { Text, TextInput, TouchableOpacity, View, Alert } from "react-native";
+import { icons } from "@/constants/icons";
+import { Text, TextInput, TouchableOpacity, View, Image } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {registerForPushNotificationAsync} from '../notification.js'
+// import only the async function, not the hook
+import { registerForPushNotificationsAsync } from "@/hooks/usePushNotifications";
 
 export default function LoginScreen() {
   const BASE_URL = "http://192.168.100.30:5000";
-
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,29 +30,35 @@ export default function LoginScreen() {
       const data = await res.json();
 
       if (res.ok && data.token && data.user) {
-        // Store token and user object
+        // Save token + user in storage
         await AsyncStorage.setItem("token", data.token);
-        // Save userId to AsyncStorage
         await AsyncStorage.setItem("userId", String(data.user.id));
-
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
-        const expoPushToken = await registerForPushNotificationAsync();
-        if(expoPushToken){
-          await fetch(`${BASE_URL}/api/profile/push-token`, {
-            method:"POST",
-            headers:{
-              'content-Type':'application/json',
-              Authorization: `Bearer ${data.token}`,
-            },
-            body:JSON.stringify({expoPushToken})
-          })
+        // Now get the expo push token
+        const expoPushToken = await registerForPushNotificationsAsync();
+
+        if (expoPushToken) {
+          try {
+            await fetch(`${BASE_URL}/api/notifications/register-token`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${data.token}`, // auth if needed
+              },
+              body: JSON.stringify({
+                userId: data.user.id,
+                expoPushToken,
+              }),
+            });
+          } catch (pushErr) {
+            console.error("Failed to register push token:", pushErr);
+          }
         }
 
-        // Navigate to home/root
+        // Go to home/root
         router.replace("/");
       } else {
-        // Handle invalid credentials or missing token/user
         setError(data.error || "Invalid credentials");
         await AsyncStorage.removeItem("token");
         await AsyncStorage.removeItem("user");
@@ -97,6 +105,26 @@ export default function LoginScreen() {
           {loading ? "Logging in..." : "Log In"}
         </Text>
       </TouchableOpacity>
+
+      {/* Divider with Google option */}
+      <View className="flex mt-8 flex-col items-center justify-center">
+        <View className="flex flex-row items-center w-full mb-6">
+          <View className="flex-1 h-px bg-gray-600"></View>
+          <Text className="text-gray-400 text-sm font-medium mx-4">
+            or continue with
+          </Text>
+          <View className="flex-1 h-px bg-gray-600"></View>
+        </View>
+
+        <View className="flex flex-row items-center justify-center w-full">
+          <TouchableOpacity className="flex flex-row items-center justify-center py-4 rounded-xl w-full bg-white border border-gray-300 shadow-lg active:scale-95 active:shadow-md transition-all duration-200">
+            <Image className="w-5 h-5 mr-3" source={icons.google} />
+            <Text className="text-gray-800 font-semibold text-base">
+              Continue with Google
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View className="w-full items-center m-2">
         <Text className="text-red-500 font-bold">{error}</Text>

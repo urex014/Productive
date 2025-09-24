@@ -217,10 +217,37 @@ export default function ChatList() {
 
       {/* Loading overlay */}
       {loading && (
-        <View className="absolute inset-0 bg-black/60 justify-center items-center z-50">
-          <ActivityIndicator size="large" color="#fff" />
-          <Text className="text-white mt-3">Starting chat...</Text>
+        <View className="flex-1 bg-primary">
+  {/* Header */}
+  <View className="pt-4 px-5">
+    <TouchableOpacity onPress={() => router.back()} className="self-start">
+      <ChevronLeft size={24} color="white" />
+    </TouchableOpacity>
+  </View>
+
+  {/* Chat list skeleton */}
+  <View className="flex-1 px-4 mt-6">
+    {[1, 2, 3, 4, 5].map((item) => (
+      <View key={item} className="flex-row items-center p-3 border-b border-gray-700">
+        <View className="w-12 h-12 bg-gray-600 rounded-full mr-3"></View>
+        <View className="flex-1">
+          <View className="h-4 bg-gray-600 rounded-full mb-2 w-3/4"></View>
+          <View className="h-3 bg-gray-600 rounded-full w-1/2"></View>
         </View>
+        <View className="items-end">
+          <View className="h-3 bg-gray-600 rounded-full w-10 mb-1"></View>
+          <View className="w-5 h-5 bg-blue-500 rounded-full"></View>
+        </View>
+      </View>
+    ))}
+  </View>
+
+  {/* Loading indicator */}
+  <View className="items-center py-4">
+    <ActivityIndicator size="small" color="#fff" />
+    <Text className="text-white mt-2 text-sm">Loading messages...</Text>
+  </View>
+</View>
       )}
     </SafeAreaView>
   );

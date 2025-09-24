@@ -1,7 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
+// /api/auth
 const authRoutes = (db) => {
   const router = express.Router();
   const JWT_SECRET = process.env.JWT_SECRET || "supersecret"; // move to .env in production

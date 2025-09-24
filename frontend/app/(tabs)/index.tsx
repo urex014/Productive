@@ -53,7 +53,7 @@ export default function DashboardScreen() {
         const profileData = await profileRes.json()
         setUser(profileData.user)
       } catch (err) {
-        console.error("Error fetching dashboard data", err)
+        console.warn("Error fetching dashboard data", err)
       }
     }
 

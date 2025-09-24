@@ -19,6 +19,7 @@ import path from 'path'
 import notificationRoutes from './routes/notification.js'
 import db from "./db/db.js"; // ✅ new DB import
 import { fileURLToPath } from "url";
+import fetch from "node-fetch"; 
 
 dotenv.config();
 const app = express();
@@ -49,22 +50,24 @@ io.on("connection", (socket) => {
     console.log(`User with ID: ${socket.id} joined room: ${room}`);
   });
 
-  socket.on("sendMessage", (msg) => {
+
+
+socket.on("sendMessage", async (msg) => {
   const { chatId, senderId, message } = msg;
   const createdAt = new Date().toISOString();
 
-  if(!chatId || !senderId || !message) {
+  if (!chatId || !senderId || !message) {
     console.error("Invalid message payload:", msg);
     return;
   }
 
-  // Save message into DB
+  // 1️⃣ Save message into DB
   const stmt = db.prepare(
     "INSERT INTO messages (chatId, senderId, message, createdAt) VALUES (?, ?, ?, ?)"
   );
   const result = stmt.run(chatId, senderId, message, createdAt);
 
-  // Fetch sender details from users table (✅ lowercase id)
+  // 2️⃣ Fetch sender details
   const sender = db
     .prepare("SELECT username, image FROM users WHERE id = ?")
     .get(senderId);
@@ -73,7 +76,7 @@ io.on("connection", (socket) => {
     id: result.lastInsertRowid,
     chatId,
     senderId,
-    message, // i need this in frno3nd
+    message,
     createdAt,
     senderName: sender?.username || "Unknown",
     senderImage:
@@ -81,9 +84,49 @@ io.on("connection", (socket) => {
       "https://img.icons8.com/ios-filled/100/user-male-circle.png",
   };
 
-  // ✅ Broadcast to everyone in the room (sender + others)
+  // 3️⃣ Broadcast via WebSocket
   io.to(chatId).emit("receiveMessage", savedMessage);
+
+  // 4️⃣ Fetch all participants except the sender
+  const participants = db
+    .prepare(`
+      SELECT u.id, u.username, u.expoPushToken
+      FROM users u
+      JOIN chat_participants cp ON u.id = cp.userId
+      WHERE cp.chatId = ? AND u.id != ?
+    `)
+    .all(chatId, senderId);
+
+  // 5️⃣ Send push notifications via Expo
+  await Promise.all(
+    participants.map(async (user) => {
+      if (!user.expoPushToken) {
+        console.warn(`User ${user.id} has no expoPushToken`);
+        return;
+      }
+
+      try {
+        const res = await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: user.expoPushToken,
+            sound: "default",
+            title: ` ${sender.username} sent you a message`,
+            body: message,
+            data: { chatId, senderId, type: "chat_message" },
+          }),
+        });
+
+        const data = await res.json();
+        console.log(`Expo push result for user ${user.id}:`, data);
+      } catch (err) {
+        console.error(`Failed to send push to user ${user.id}:`, err);
+      }
+    })
+  );
 });
+
 
 
   socket.on("disconnect", () => {
@@ -128,7 +171,7 @@ app.use("/api/reminders", remindersRoutes(db));
 app.use("/api/profile", profileRoutes(db));
 app.use("/api/stats", statsRoutes(db));
 app.use("/api/timetable", timetableRoutes(db));
-app.use('/api/notify', notificationRoutes)
+app.use('/api/notifications', notificationRoutes)
 app.use("/api/chats", chatRoutes(db));
 
 // Debug route

@@ -1,14 +1,19 @@
 import { Stack } from "expo-router";
+import firebaseApp from "../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useMemo, useState, useEffect } from "react";
 import { StatusBar, View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import "./globals.css";
-import ChatRoom from "./chat/ChatRoom";
-import {SocketProvider} from './context/socketContext.js';
+import { SocketProvider } from "./context/socketContext.js";
+import usePushNotifications from "@/hooks/usePushNotifications";
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // Grab token + notifications from custom hook
+  const { expoPushToken, notification } = usePushNotifications();
+
   const defaultScreenOptions = useMemo(() => ({ headerShown: false }), []);
   const [loading, setLoading] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(true);
@@ -27,6 +32,21 @@ export default function RootLayout() {
     };
     init();
   }, []);
+
+  // Log the token when it’s ready — later, send this to your backend
+  useEffect(() => {
+    if (expoPushToken) {
+      console.log("Expo Push Token:", expoPushToken);
+      // TODO: send expoPushToken to your backend tied to the logged-in user
+    }
+  }, [expoPushToken]);
+
+  // Log incoming notifications — later, you can show a banner or update UI
+  useEffect(() => {
+    if (notification) {
+      console.log("Notification received:", notification);
+    }
+  }, [notification]);
 
   if (loading) {
     return (
@@ -47,7 +67,6 @@ export default function RootLayout() {
   }
 
   return (
-    <>
     <SocketProvider>
       <StatusBar hidden={true} />
       <Stack screenOptions={defaultScreenOptions}>
@@ -57,8 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="chat/list" />
         <Stack.Screen name="chat/ChatRoom" />
       </Stack>
-      </SocketProvider>
-    </>
+    </SocketProvider>
   );
 }
 
