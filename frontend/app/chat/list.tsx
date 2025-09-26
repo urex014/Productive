@@ -11,10 +11,12 @@ import {
   Pressable,
   Alert,
 } from "react-native";
+import { icons } from "@/constants/icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import SearchBar from "@/components/SearchBar";
 import { SearchX, ChevronLeft } from "lucide-react-native";
+import { WebView } from 'react-native-webview';
 
 export default function ChatList() {
   const router = useRouter();
@@ -184,7 +186,7 @@ export default function ChatList() {
   return (
     <SafeAreaView className="flex-1 pt-12 bg-primary">
       {/* Back button */}
-      <TouchableOpacity className="ml-5 mb-3" onPress={() => router.back()}>
+      <TouchableOpacity className="ml-5 mb-1" onPress={() => router.back()}>
         <ChevronLeft size={24} color="white" />
       </TouchableOpacity>
 
@@ -207,7 +209,11 @@ export default function ChatList() {
         />
       ) : (
         <View className="flex-1 justify-center items-center px-12">
-          <SearchX size={80} color="white" />
+          <WebView scalesPageToFit={false}
+          originWhitelist={['*']}
+          domStorageEnabled={true}
+          source={icons.book}
+          />
           <Text className="text-gray-400 font-bold text-center mt-4">
             No chats available. Search for users using their username or email
             to start a new chat!

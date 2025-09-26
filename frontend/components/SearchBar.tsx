@@ -6,7 +6,7 @@ import { Search } from 'lucide-react-native';
 
 export default function SearchBar({ query, setQuery }) {
   return (
-    <View className="flex-row items-center bg-gray-100 rounded-full px-4 py-2 mx-4 my-4">
+    <View className="flex-row items-center bg-gray-100 rounded-full px-3 py-1 mx-4 my-2">
       <Search size={20} />
       <TextInput
         placeholder="Search users..."

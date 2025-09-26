@@ -10,7 +10,7 @@ function TabIcon({ focused, Icon, title }: any) {
     return (
       <View className="flex flex-row w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full overflow-hidden bg-white/90">
         <Icon size={20} color="#151312" />
-        <Text className="text-secondary text-base font-semibold ml-2">
+        <Text className="text-gray-70000 text-base font-bold ml-2">
           {title}
         </Text>
       </View>
@@ -53,7 +53,7 @@ const _layout = () => {
         },
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: 'rgba(15, 13, 35, 0.5)',
+          backgroundColor: 'rgba(0,0,0, 0.5)',
           borderRadius: 50,
           marginHorizontal: 20,
           marginBottom: 36,

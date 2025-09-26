@@ -15,8 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/connect-logo.png",
         "backgroundColor": "#000000",
-        "googleServicesFile": "./google-services.json",
-        "package":"com.Amara.Amara"
+        "googleServicesFile": "./android/app/google-services.json",
+        "package":"com.productivity"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Amara",
@@ -31,14 +31,23 @@
       "favicon": "./assets/images/connect-logo.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
       "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android":{},
+          "ios":{}
+        }
+      ],
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/connect-logo.png",
-          "imageWidth": 200,
+          "image":"./assets/images/connect-logo.png",
+          "imageWidth":200,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor":"#000000"
         }
       ],
       "expo-notifications"

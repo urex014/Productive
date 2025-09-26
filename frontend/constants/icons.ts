@@ -9,5 +9,6 @@ export const icons = {
   star : require("@/assets/icons/star.png"),
   play : require("@/assets/icons/play.png"),
   arrow : require("@/assets/icons/arrow.png"),
-  google: require("@/assets/icons/google.png")
+  google: require("@/assets/icons/google.png"),
+  book:require("@/assets/icons/load.mp4")
 };

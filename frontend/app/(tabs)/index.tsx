@@ -16,6 +16,7 @@ import {
   Bell,
   User,
 } from "lucide-react-native"
+import PulsingDots from "@/components/PulsingDots"
 import { useRouter } from "expo-router"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
@@ -73,6 +74,7 @@ export default function DashboardScreen() {
         new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime()
     )
 
+
   return (
     <View className="flex-1 bg-black">
       <ScrollView
@@ -102,13 +104,28 @@ export default function DashboardScreen() {
         </View>
 
         {/* Streak Card */}
-        <View className="bg-[#1f1f3a] rounded-3xl p-6 mb-10 items-center">
-          <Flame color="#f97316" size={48} />
-          <Text className="text-white text-6xl font-extrabold mt-3">
-            {streak}
-          </Text>
-          <Text className="text-gray-400 mt-1 text-lg">days in a row</Text>
-        </View>
+        <View className="bg-gradient-to-br from-[#2a2a4a] via-[#1f1f3a] to-[#151529] rounded-3xl p-8 mb-8 items-center border border-white/5 shadow-2xl shadow-purple-500/10">
+  {/* Animated glow effect */}
+  <View className="absolute -inset-2 bg-gradient-to-r from-orange-500/20 via-purple-500/10 to-cyan-500/10 rounded-3xl blur-md"></View>
+  
+  {/* Icon with gradient background */}
+  <View className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 p-4 rounded-2xl mb-4 border border-orange-500/20">
+    <Flame color="#f97316" size={44} />
+  </View>
+  
+  {/* Streak number with gradient text */}
+  <Text className="text-6xl  font-black mt-2  bg-clip-text bg-gradient-to-b text-white from-white to-gray-300">
+    {streak}
+  </Text>
+  
+  {/* Subtitle with better styling */}
+  <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">
+    days in a row
+  </Text>
+  
+  {/* Decorative elements */}
+  <PulsingDots />
+</View>
 
         {/* Quick Actions */}
         <View className="flex-row justify-between mb-10">
