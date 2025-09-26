@@ -15,7 +15,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/connect-logo.png",
         "backgroundColor": "#000000",
-        "googleServicesFile": "frontend/android/app/google-services.json",
+        "googleServicesFile": "./android/app/google-services.json",
         "package":"com.productivity"
       },
       "edgeToEdgeEnabled": true,
