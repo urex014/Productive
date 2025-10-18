@@ -1,5 +1,6 @@
 // app/tasks.tsx
-import React, { useEffect, useState } from "react"
+import * as React from "react";
+import { useState, useEffect , useRef } from "react";
 import {
   View,
   Text,
@@ -183,14 +184,13 @@ export default function TasksScreen() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View className="flex-1">
-          <Text className="text-white text-2xl font-bold mb-6">Tasks</Text>
+          <Text className="text-white text-4xl font-bold mb-6">Tasks</Text>
 
           {/* Task Form */}
-          <View className="bg-gray-900 rounded-2xl p-4 mb-6 shadow-lg">
+          <View className="rounded-3xl p-8 mb-8 items-center border border-y-white shadow-2xl shadow-purple-500/10">
             <Text className="text-white text-lg font-bold mb-3">
               {editingTask ? "Update Task" : "Create Task"}
             </Text>
-
             <TextInput
               value={editingTask ? editingTask.title : newTask}
               onChangeText={(text) =>
@@ -200,7 +200,7 @@ export default function TasksScreen() {
               }
               placeholder={editingTask ? "Edit task title" : "New task title"}
               placeholderTextColor="#777"
-              className="bg-gray-800 text-white px-4 py-3 rounded-xl mb-3"
+              className="bg-[rgb(0,0,0,0.7)] border-orange-500 border text-white px-4 m-3 w-full py-3 rounded-xl mb-3"
             />
 
             <TextInput
@@ -215,13 +215,13 @@ export default function TasksScreen() {
               }
               placeholder="Description"
               placeholderTextColor="#777"
-              className="bg-gray-800 text-white px-4 py-3 rounded-xl mb-3"
+              className="bg-[rgb(0,0,0,0.7)] border-orange-300 border text-white px-4 m-3 w-full py-3 rounded-xl mb-3 "
             />
 
             {/* Date Picker Trigger */}
             <TouchableOpacity
               onPress={() => setDatePickerVisibility(true)}
-              className="bg-gray-800 px-4 py-3 rounded-xl mb-3 flex-row items-center"
+              className="bg-black border border-orange-200 px-4 pt-3 py-3 rounded-xl mb-3 flex-row items-center"
             >
               <Calendar color="white" size={18} />
               <Text

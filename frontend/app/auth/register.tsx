@@ -1,5 +1,6 @@
 // app/auth/register.tsx
-import React, { useState } from "react";
+import * as React from "react";
+import {useState, useEffect} from 'react'
 import { icons } from "@/constants/icons";
 import {
   Text,
@@ -8,10 +9,14 @@ import {
   View,
   Alert,
   Image,
+  StyleSheet
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotificationsAsync } from "@/hooks/usePushNotifications";
+import vid from '@/assets/videos/background.mp4'
+import { BlurView } from "expo-blur";
+import { Video } from "expo-av";
 
 export default function RegisterScreen() {
   const BASE_URL = "http://192.168.100.30:5000";
@@ -96,20 +101,21 @@ export default function RegisterScreen() {
     }
   };
 
-  return (
-    <View className="flex-1 justify-center bg-black px-6">
-      <Text className="text-white text-4xl font-bold mb-10 text-center">
-        Create Account
-      </Text>
+   return (
+    <View className="bg-primary p-6 flex-1 items-center justify-center">
+      
+      <Text style={styles.heading}>Create Account</Text>
 
+      {/* Username */}
       <TextInput
         value={username}
         onChangeText={setUsername}
         placeholder="Username"
         placeholderTextColor="#9ca3af"
-        className="w-full bg-[#1f1f3a] text-white px-4 py-3 rounded-xl mb-4"
+        style={styles.input}
       />
 
+      {/* Email */}
       <TextInput
         value={email}
         onChangeText={setEmail}
@@ -117,66 +123,114 @@ export default function RegisterScreen() {
         placeholderTextColor="#9ca3af"
         keyboardType="email-address"
         autoCapitalize="none"
-        className="w-full bg-[#1f1f3a] text-white px-4 py-3 rounded-xl mb-4"
+        style={styles.input}
       />
 
+      {/* Password */}
       <TextInput
         value={password}
         onChangeText={setPassword}
         placeholder="Password"
         placeholderTextColor="#9ca3af"
         secureTextEntry
-        className="w-full bg-[#1f1f3a] text-white px-4 py-3 rounded-xl mb-4"
+        style={styles.input}
       />
 
+      {/* Confirm Password */}
       <TextInput
         value={confirmPassword}
         onChangeText={setConfirmPassword}
         placeholder="Confirm Password"
         placeholderTextColor="#9ca3af"
         secureTextEntry
-        className="w-full bg-[#1f1f3a] text-white px-4 py-3 rounded-xl mb-6"
+        style={[styles.input, { marginBottom: 20 }]}
       />
 
-      <View className="w-full items-center mb-3">
-        <Text className="font-bold text-red-500 uppercase">{error}</Text>
-      </View>
+      {/* Error Message */}
+      {error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : null}
 
+      {/* Register Button */}
       <TouchableOpacity
         onPress={handleRegister}
-        className="w-full bg-white py-3 rounded-xl"
+        className={loading?"border w-full flex items-center justify-center border-orange-500 p-4 rounded-full":"rounded-full  flex items-center justify-center w-full bg-orange-500 p-4"}
         disabled={loading}
       >
-        <Text className="text-[#0a0a23] font-bold text-center text-lg">
+        <Text style={styles.buttonText}>
           {loading ? "Registering..." : "Sign Up"}
         </Text>
       </TouchableOpacity>
 
-      <View className="flex mt-8 flex-col items-center justify-center">
-        <View className="flex flex-row items-center w-full mb-6">
-          <View className="flex-1 h-px bg-gray-600"></View>
-          <Text className="text-gray-400 text-sm font-medium mx-4">
-            or continue with
-          </Text>
-          <View className="flex-1 h-px bg-gray-600"></View>
-        </View>
-
-        <View className="flex flex-row items-center justify-center w-full">
-          <TouchableOpacity className="flex flex-row items-center justify-center py-4 rounded-xl w-full bg-white border border-gray-300 shadow-lg active:scale-95 active:shadow-md transition-all duration-200">
-            <Image className="w-5 h-5 mr-3" source={icons.google} />
-            <Text className="text-gray-800 font-semibold text-base">
-              Continue with Google
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View className="flex-row justify-center mt-6">
-        <Text className="text-gray-400">Already have an account? </Text>
+      {/* Already have an account */}
+      <View style={styles.bottomLinks}>
+        <Text style={styles.grayText}>Already have an account? </Text>
         <TouchableOpacity onPress={() => router.push("/auth/login")}>
-          <Text className="text-white font-semibold">Log In</Text>
+          <Text style={styles.whiteText}>Log In</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor:"#000000",
+    paddingHorizontal: 20,
+    justifyContent: "center",
+  },
+  heading: {
+    color: "white",
+    fontSize: 36,
+    fontWeight: "bold",
+    marginBottom: 30,
+    textAlign: "center",
+  },
+  input: {
+    width: "100%",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    color: "white",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  button: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: "#7b5fff",
+    alignItems: "center",
+    shadowColor: "#7b5fff",
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+  },
+  buttonDisabled: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: "gray",
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  error: {
+    color: "red",
+    fontWeight: "500",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  bottomLinks: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 25,
+  },
+  grayText: { color: "#ccc" },
+  whiteText: { color: "white", fontWeight: "600" },
+});

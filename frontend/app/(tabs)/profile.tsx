@@ -1,16 +1,18 @@
 // app/profile.tsx
-import React, { useEffect, useState } from "react"
+import * as React from "react"
+import { useEffect, useState } from "react"
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Image,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Image,
   Modal,
+  Text,
   TextInput,
-  ScrollView,
+  TouchableOpacity,
+  View
 } from "react-native"
+
+import { LogOut, RectangleEllipsis, UserPen } from "lucide-react-native"
 
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as ImagePicker from "expo-image-picker"
@@ -136,7 +138,7 @@ export default function ProfileScreen() {
       <Text className="text-white text-2xl font-bold mb-6">Profile</Text>
 
       {/* User Card */}
-      <View className="rounded-[8px] p-6 items-center bg-slate-900 mb-6">
+      <View className="rounded-[8px] p-6 items-center bg-[rgb(0,0,0,0.7)] border border-y-orange-500 border-x-orange-300 mb-6">
         <Image
           source={{
             uri: `${API_BASE}${user?.image} `|| "https://cdn-icons-png.flaticon.com/512/149/149071.png",
@@ -147,27 +149,34 @@ export default function ProfileScreen() {
         <Text className="text-gray-400 text-sm">{user?.email}</Text>
       </View>
 
-      {/* Actions */}
-      <TouchableOpacity
-        className="bg-blue-500 p-4 rounded-xl mb-4 items-center"
-        onPress={() => setEditModalVisible(true)}
-      >
-        <Text className="text-white font-semibold">Edit Profile</Text>
-      </TouchableOpacity>
+     {/* Actions */}
+<View className="flex-row flex-wrap justify-between mt-6">
+  {/* Edit Profile */}
+  <TouchableOpacity
+    className="bg-[rgb(0,0,0,0.7)] border border-blue-300 h-40 flex-col w-[48%] p-6 rounded-2xl mb-4 items-center shadow-lg"
+    onPress={() => setEditModalVisible(true)}
+  >
+    <UserPen size={48} color={"white"} />
+    <Text className="text-white text-start font-bold text-lg">Edit Profile</Text>
+  </TouchableOpacity>
 
-      <TouchableOpacity
-        className="bg-yellow-500 p-4 rounded-xl mb-4 items-center"
-        onPress={() => setPasswordModalVisible(true)}
-      >
-        <Text className="text-white font-semibold">Change Password</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        className="bg-red-500 p-4 rounded-xl items-center"
-        onPress={handleLogout}
-      >
-        <Text className="text-white font-semibold">Logout</Text>
-      </TouchableOpacity>
+  {/* Change Password */}
+  <TouchableOpacity
+    className="bg-[rgb(0,0,0,0.7)] border border-[#10b981] w-[48%] h-40 flex-col p-6 rounded-2xl mb-4 justify-center items-center shadow-lg"
+    onPress={() => setPasswordModalVisible(true)}
+  >
+    <RectangleEllipsis color={"white"} size={48} />
+    <Text className="text-white text-start font-bold text-lg">Change Password</Text>
+  </TouchableOpacity>
+  {/* Logout */}
+  <TouchableOpacity
+    className="bg-[rgb(0,0,0,0.7)] border border-red-300 w-[48%] flex-col h-40 p-6 rounded-2xl mb-4 items-center shadow-lg"
+    onPress={handleLogout}
+  >
+    <LogOut size={48} color="white" />
+    <Text className="text-white font-bold text-lg">Logout</Text>
+  </TouchableOpacity>
+</View>
 
       {/* Edit Profile Modal */}
       <Modal visible={editModalVisible} animationType="slide" transparent>

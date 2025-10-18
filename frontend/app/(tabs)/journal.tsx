@@ -1,5 +1,6 @@
 // app/journal.tsx
-import React, { useState, useEffect } from "react";
+import * as React from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -151,13 +152,14 @@ export default function JournalScreen() {
           <Text className="text-white text-2xl font-bold mb-6">Journal</Text>
 
           {/* Note Form */}
-          <View className="bg-gray-900 rounded-2xl p-4 mb-6 shadow-lg">
+          <View className="bg-[0,0,0,0.7] border border-y-white rounded-2xl p-4 mb-6 shadow-lg">
+            <Text className="text-white text-lg font-bold mb-3">New Journal</Text>
             <TextInput
               value={newTitle}
               onChangeText={setNewTitle}
               placeholder="Note title"
               placeholderTextColor="#777"
-              className="bg-gray-800 text-white px-4 py-3 rounded-xl mb-3"
+              className="bg-[rgb(0,0,0,0.7)] border border-orange-500 text-white px-4 py-3 rounded-xl mb-3"
             />
             <TextInput
               value={newContent}
@@ -165,14 +167,14 @@ export default function JournalScreen() {
               placeholder="Write your thoughts..."
               placeholderTextColor="#777"
               multiline
-              className="bg-gray-800 text-white px-4 py-3 rounded-xl min-h-[80px]"
+              className="bg-[rgb(0,0,0,0.7)] border border-orange-300 text-white px-4 py-3 my-3 rounded-xl min-h-[80px]"
             />
 
             {/* Buttons Row */}
             <View className="flex-row justify-between mt-2">
               <TouchableOpacity
                 onPress={handleAddNote}
-                className="bg-green-500 flex-1 py-3 rounded-xl mr-2 items-center"
+                className="bg-blue-500 flex-1 py-3 rounded-xl mr-2 items-center"
               >
                 <Plus color="white" size={20} />
               </TouchableOpacity>

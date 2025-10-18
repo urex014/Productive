@@ -14,12 +14,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/connect-logo.png",
-        "backgroundColor": "#000000",
-        "googleServicesFile": "./android/app/google-services.json",
-        "package":"com.productivity"
+        "backgroundColor": "#000000"
       },
+      "package":"com.productivity",
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Amara",
       "notification":{
         "icon":"./assets/images/connect-logo.png",
         "color":"#ffffff"
@@ -31,8 +29,6 @@
       "favicon": "./assets/images/connect-logo.png"
     },
     "plugins": [
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
       "expo-router",
       [
         "expo-build-properties",

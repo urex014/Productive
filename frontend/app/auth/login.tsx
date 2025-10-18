@@ -1,12 +1,13 @@
 // app/auth/login.tsx
-import React, { useState } from "react";
-import { icons } from "@/constants/icons";
-import { Text, TextInput, TouchableOpacity, View, Image } from "react-native";
+import React, { useState, useRef } from "react";
+import { BlurView } from "expo-blur";
+import { Text, TextInput, TouchableOpacity, View, StyleSheet } from "react-native";
+import {Video} from 'expo-av'
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// import only the async function, not the hook
 import { registerForPushNotificationsAsync } from "@/hooks/usePushNotifications";
-
+import vid from '@/assets/videos/background.mp4'
+import { SafeAreaView } from "react-native-safe-area-context";
 export default function LoginScreen() {
   const BASE_URL = "http://192.168.100.30:5000";
   const router = useRouter();
@@ -15,7 +16,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const handleLogin = async () => {
     setLoading(true);
     setError("");
@@ -30,12 +30,10 @@ export default function LoginScreen() {
       const data = await res.json();
 
       if (res.ok && data.token && data.user) {
-        // Save token + user in storage
         await AsyncStorage.setItem("token", data.token);
         await AsyncStorage.setItem("userId", String(data.user.id));
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
-        // Now get the expo push token
         const expoPushToken = await registerForPushNotificationsAsync();
 
         if (expoPushToken) {
@@ -44,7 +42,7 @@ export default function LoginScreen() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${data.token}`, // auth if needed
+                Authorization: `Bearer ${data.token}`,
               },
               body: JSON.stringify({
                 userId: data.user.id,
@@ -56,7 +54,6 @@ export default function LoginScreen() {
           }
         }
 
-        // Go to home/root
         router.replace("/");
       } else {
         setError(data.error || "Invalid credentials");
@@ -71,78 +68,113 @@ export default function LoginScreen() {
     }
   };
 
+
   return (
-    <View className="flex-1 justify-center bg-primary px-6">
-      <Text className="text-white text-4xl font-bold mb-10 text-center">
-        Welcome Back
-      </Text>
+     <SafeAreaView className="bg-primary p-6 flex-1 items-center justify-center">
 
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        placeholderTextColor="#9ca3af"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        className="w-full bg-[#1f1f3a] text-white px-6 py-3 rounded-lg mb-4"
-      />
+      {/* Overlay content */}
 
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Password"
-        placeholderTextColor="#9ca3af"
-        secureTextEntry
-        className="w-full bg-[#1f1f3a] text-white px-6 py-3 rounded-lg mb-6"
-      />
+        {/* Login Card with visible blur */}
+          <Text className="font-bold my-6 text-white text-3xl">Welcome Back</Text>
 
-      <TouchableOpacity
-        onPress={handleLogin}
-        className="w-full bg-white py-3 rounded-xl"
-        disabled={loading}
-      >
-        <Text className="text-[#0a0a23] font-bold text-center text-lg">
-          {loading ? "Logging in..." : "Log In"}
-        </Text>
-      </TouchableOpacity>
+          {/* Email Input */}
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
+            placeholderTextColor="#c5c7ce"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            style={styles.input}
+          />
 
-      {/* Divider with Google option */}
-      <View className="flex mt-8 flex-col items-center justify-center">
-        <View className="flex flex-row items-center w-full mb-6">
-          <View className="flex-1 h-px bg-gray-600"></View>
-          <Text className="text-gray-400 text-sm font-medium mx-4">
-            or continue with
-          </Text>
-          <View className="flex-1 h-px bg-gray-600"></View>
-        </View>
+          {/* Password Input */}
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Password"
+            placeholderTextColor="#c5c7ce"
+            secureTextEntry
+            style={styles.input}
+          />
 
-        <View className="flex flex-row items-center justify-center w-full">
-          <TouchableOpacity className="flex flex-row items-center justify-center py-4 rounded-xl w-full bg-white border border-gray-300 shadow-lg active:scale-95 active:shadow-md transition-all duration-200">
-            <Image className="w-5 h-5 mr-3" source={icons.google} />
-            <Text className="text-gray-800 font-semibold text-base">
-              Continue with Google
+          {/* Login Button */}
+          <TouchableOpacity
+            onPress={handleLogin}
+            className={loading?"border w-full flex items-center justify-center border-orange-500 p-4 rounded-full":"rounded-full  flex items-center justify-center w-full bg-orange-500 p-4"}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "Logging in..." : "Log In"}
             </Text>
           </TouchableOpacity>
+
+          {/* Error */}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {/* Sign Up + Forgot Password */}
+        <View style={styles.bottomLinks}>
+          <Text style={styles.grayText}>Don’t have an account? </Text>
+          <TouchableOpacity onPress={() => router.push("/auth/register")}>
+            <Text style={styles.whiteText}>Sign Up</Text>
+          </TouchableOpacity>
         </View>
-      </View>
 
-      <View className="w-full items-center m-2">
-        <Text className="text-red-500 font-bold">{error}</Text>
-      </View>
-
-      <View className="flex-row justify-center mt-6">
-        <Text className="text-gray-400">Don’t have an account? </Text>
-        <TouchableOpacity onPress={() => router.push("/auth/register")}>
-          <Text className="text-white font-semibold">Sign Up</Text>
+        <TouchableOpacity onPress={() => router.push("/auth/forgot-password")}>
+          <Text style={[styles.grayText, { textDecorationLine: "underline", marginTop: 10 }]}>
+            Forgot Password?
+          </Text>
         </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        className="mt-4"
-        onPress={() => router.push("/auth/forgot-password")}
-      >
-        <Text className="text-gray-400 text-center">Forgot Password?</Text>
-      </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
+  card: {
+    width: "100%",
+    padding: 30,
+    borderRadius: 30,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    shadowColor: "#000",
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.3)", // semi-transparent black
+  },
+  heading: { color: "white", fontSize: 44, fontWeight: "bold", marginBottom: 30, textAlign: "center" },
+  input: {
+    width: "100%",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    color: "white",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  button: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: "#7b5fff",
+    alignItems: "center",
+    shadowColor: "#7b5fff",
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+  },
+  buttonDisabled: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 25,
+    backgroundColor: "gray",
+    alignItems: "center",
+  },
+  buttonText: { color: "white", fontWeight: "bold", fontSize: 18 },
+  error: { color: "red", marginTop: 15, fontWeight: "500" },
+  bottomLinks: { flexDirection: "row", marginTop: 25, alignItems: "center" },
+  grayText: { color: "#ccc" },
+  whiteText: { color: "white", fontWeight: "600" },
+});

@@ -1,5 +1,6 @@
 // app/ChatRoom.jsx
-import React, { useEffect, useState, useRef } from "react";
+import * as  React from "react";
+import {useState, useEffect, useRef} from 'react'
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   Platform,
   Image,
   KeyboardAvoidingView,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -112,8 +114,15 @@ export default function ChatRoom() {
 
     socket.emit("joinRoom", chatId);
 
-    const handleMessage = (msg) => {
-      setMessages(prev => [...prev, msg]);
+    interface IncomingMessage {
+      id?: string | number;
+      message: string | null;
+      senderId: string | number;
+      senderName?: string;
+    }
+
+    const handleMessage = (msg: IncomingMessage) => {
+      setMessages((prev: IncomingMessage[]) => [...prev, msg]);
       flatListRef.current?.scrollToEnd({ animated: true });
 
       // Optional foreground logging
@@ -214,6 +223,33 @@ export default function ChatRoom() {
   (msg, idx, arr) => arr.findIndex(m => m.id === msg.id) === idx
 );
 
+const handleDeleteMessage = async (messageId: string) => {
+  try {
+    await fetch(`${BASE_URL}/messages/${messageId}`, {
+      method: "DELETE",
+    })
+    // Optimistically remove from state
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+  } catch (err) {
+    console.error("Delete failed", err)
+  }
+}
+
+const editMessages = (messageId: string, currentText: string) => {
+  Alert.alert(
+    "Delete",
+    "Delete chat?",
+    [ 
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDeleteMessage(messageId),
+      },
+      { text: "Cancel", style: "cancel" },
+    ],
+    { cancelable: true }
+  )
+}
   return (
     <KeyboardAvoidingView
     className="bg-primary"
@@ -237,12 +273,12 @@ export default function ChatRoom() {
       <FlatList
         ref={flatListRef}
         data={uniqueMessages}
-        keyExtractor={item => item.id?.toString()||item.message}
+        keyExtractor={(item, index) => item.id?.toString() ?? item.message ?? `key-${index}`}
         renderItem={({ item }) => (
-          <View className={`p-3 my-1 rounded-3xl max-w-[75%] ${item.senderId === userId ? "bg-blue-600 self-end rounded-br-none" : "bg-gray-700 self-start rounded-bl-none"}`}>
+          <TouchableOpacity onLongPress={()=>{editMessages(item.id as string, item.message ?? "")}} className={`p-3 my-1 rounded-3xl max-w-[75%] ${item.senderId === userId ? "bg-blue-600 self-end rounded-br-none" : "bg-gray-700 self-start rounded-tl-none"}`}>
             {item.senderId !== userId && <Text className="text-gray-300 text-xs mb-1">{item.senderName || "User"}</Text>}
             <Text className="text-white">{item.message}</Text>
-          </View>
+          </TouchableOpacity>
         )}
         contentContainerStyle={{ padding: 10 }}
         ListEmptyComponent={<Text className="text-gray-400 text-center mt-4">No messages yet. Start the conversation!</Text>}

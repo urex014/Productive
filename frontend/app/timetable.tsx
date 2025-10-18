@@ -147,7 +147,7 @@ export default function TimetablePage() {
   return (
     <SafeAreaView className="flex-1 bg-black">
       {/* Header */}
-      <View className="flex-row items-center justify-between p-4 bg-gray-900">
+      <View className="flex-row items-center justify-between p-4 bg-[rgb(0,0,0,0.7)]">
         <TouchableOpacity onPress={() => router.back()}>
           <Text className="text-blue-400 text-base"><ChevronLeft size={24} color={"white"} /></Text>
         </TouchableOpacity>
@@ -185,7 +185,7 @@ export default function TimetablePage() {
           {/* Rows */}
           {daysOfWeek.map((day) => (
             <View key={day} className="flex-row border-b border-gray-700">
-              <View className="w-28 p-2 bg-gray-900">
+              <View className="w-28 p-2 bg-[rgb(0,0,0,0.7)]">
                 <Text className="text-white font-semibold">{day}</Text>
               </View>
               {timeSlots.map((_, index) => (
@@ -208,12 +208,12 @@ export default function TimetablePage() {
       </ScrollView>
 
       {/* Save Button */}
-      <View className="p-4 bg-gray-900 border-t border-gray-700">
+      <View className="p-4 bg-[rgb(0,0,0,0.7)] border-t">
         <TouchableOpacity
           onPress={saveTimetable}
           disabled={saving}
-          className={`py-3 rounded-xl ${
-            saving ? "bg-gray-600" : "bg-blue-600"
+          className={`py-3 border rounded-xl ${
+            saving ? "border-gray-600" : "border-blue-600"
           }`}
         >
           <Text className="text-white text-center font-semibold">

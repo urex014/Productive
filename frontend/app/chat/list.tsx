@@ -1,6 +1,7 @@
 // app/ChatList.jsx
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import * as React from 'react';
+import {useState, useEffect} from 'react'
 import {
   View,
   Text,
@@ -67,7 +68,22 @@ export default function ChatList() {
   }, [userId]);
 
   // Search users by username
-  const searchUsers = async (text) => {
+  interface User {
+    id: number;
+    username: string;
+    image?: string;
+    email?: string;
+  }
+
+  interface Chat {
+    id: number;
+    type: string;
+    displayName: string;
+    displayImage?: string;
+    lastMessage?: string;
+  }
+
+  const searchUsers = async (text: string): Promise<void> => {
     setQuery(text);
 
     if (!text.trim()) {
@@ -138,7 +154,7 @@ export default function ChatList() {
 
     return (
       <Pressable
-        className="flex-row items-center px-4 py-3 border-b border-neutral-700"
+        className="flex-row items-center px-4 py-3 border-y border-neutral-700"
         onPress={() => {
           router.push({
             pathname: "/chat/ChatRoom",
@@ -193,6 +209,8 @@ export default function ChatList() {
       {/* Search bar */}
       <SearchBar query={query} setQuery={searchUsers} />
 
+      <Text className="font-bold text-3xl text-white mx-3 my-4">All chats</Text>
+
       {/* Chat list or search results */}
       {query.trim() && searchResults.length > 0 ? (
         <FlatList
@@ -234,7 +252,7 @@ export default function ChatList() {
   {/* Chat list skeleton */}
   <View className="flex-1 px-4 mt-6">
     {[1, 2, 3, 4, 5].map((item) => (
-      <View key={item} className="flex-row items-center p-3 border-b border-gray-700">
+      <View key={item} className="flex-row items-center p-3 border-y border-gray-700">
         <View className="w-12 h-12 bg-gray-600 rounded-full mr-3"></View>
         <View className="flex-1">
           <View className="h-4 bg-gray-600 rounded-full mb-2 w-3/4"></View>

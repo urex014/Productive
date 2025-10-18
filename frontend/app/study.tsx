@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  TextInput
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Flame, Award, Clock, ChevronLeft } from "lucide-react-native"
@@ -14,12 +15,22 @@ import { useNavigation } from "@react-navigation/native"
 import Svg, { Circle } from "react-native-svg"
 
 // ---------------- Duration Picker Component ----------------
+
+
 const DurationPicker = ({ onSetDuration }: { onSetDuration: (seconds: number) => void }) => {
-  const [hours, setHours] = useState(0)
-  const [minutes, setMinutes] = useState(30) // default 30 mins
+  const [hours, setHours] = useState("0")
+  const [minutes, setMinutes] = useState("30") // default 30 mins
 
   const confirm = () => {
-    const totalSeconds = hours * 3600 + minutes * 60
+    // convert safely to numbers
+    const h = parseInt(hours) || 0
+    const m = parseInt(minutes) || 0
+
+    // clamp values to avoid nonsense (e.g. negative, > 59 minutes)
+    const validHours = Math.max(0, h)
+    const validMinutes = Math.min(Math.max(0, m), 59)
+
+    const totalSeconds = validHours * 3600 + validMinutes * 60
     onSetDuration(totalSeconds)
   }
 
@@ -32,37 +43,25 @@ const DurationPicker = ({ onSetDuration }: { onSetDuration: (seconds: number) =>
       {/* Hours Input */}
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-gray-300 text-base">Hours</Text>
-        <TouchableOpacity
-          onPress={() => setHours(Math.max(0, hours - 1))}
-          className="px-3 py-1 bg-gray-700 rounded-lg"
-        >
-          <Text className="text-white">-</Text>
-        </TouchableOpacity>
-        <Text className="text-white text-lg font-bold">{hours}</Text>
-        <TouchableOpacity
-          onPress={() => setHours(hours + 1)}
-          className="px-3 py-1 bg-gray-700 rounded-lg"
-        >
-          <Text className="text-white">+</Text>
-        </TouchableOpacity>
+        <TextInput
+          value={hours}
+          onChangeText={setHours}
+          keyboardType="numeric"
+          className="w-[50%] text-center text-white bg-gray-700 rounded-lg px-2 py-1"
+          maxLength={2}
+        />
       </View>
 
       {/* Minutes Input */}
       <View className="flex-row justify-between items-center mb-6">
         <Text className="text-gray-300 text-base">Minutes</Text>
-        <TouchableOpacity
-          onPress={() => setMinutes(Math.max(0, minutes - 1))}
-          className="px-3 py-1 bg-gray-700 rounded-lg"
-        >
-          <Text className="text-white">-</Text>
-        </TouchableOpacity>
-        <Text className="text-white text-lg font-bold">{minutes}</Text>
-        <TouchableOpacity
-          onPress={() => setMinutes(minutes + 1)}
-          className="px-3 py-1 bg-gray-700 rounded-lg"
-        >
-          <Text className="text-white">+</Text>
-        </TouchableOpacity>
+        <TextInput
+          value={minutes}
+          onChangeText={setMinutes}
+          keyboardType="numeric"
+          className="w-[50%] text-center text-white bg-gray-700 rounded-lg px-2 py-1"
+          maxLength={2}
+        />
       </View>
 
       <TouchableOpacity
@@ -74,6 +73,7 @@ const DurationPicker = ({ onSetDuration }: { onSetDuration: (seconds: number) =>
     </View>
   )
 }
+
 
 // ---------------- Study Screen ----------------
 export default function StudyScreen() {
@@ -202,8 +202,8 @@ export default function StudyScreen() {
       <View className="flex-row justify-center mt-10 mb-12 space-x-6">
         <TouchableOpacity
           onPress={toggleTimer}
-          className={`px-10 py-4 mx-4 rounded-3xl shadow-lg ${
-            isRunning ? "bg-yellow-500" : "bg-green-600"
+          className={`px-10 py-4 mx-4 rounded-3xl border shadow-lg ${
+            isRunning ? "border-yellow-500" : "border-green-600"
           }`}
         >
           <Text className="text-white text-lg font-bold">
@@ -213,7 +213,7 @@ export default function StudyScreen() {
 
         <TouchableOpacity
           onPress={resetTimer}
-          className="px-10 py-4 rounded-3xl shadow-lg bg-red-500"
+          className="px-10 py-4 rounded-3xl shadow-lg border-red-500"
         >
           <Text className="text-white text-lg font-bold">Reset</Text>
         </TouchableOpacity>
@@ -222,7 +222,7 @@ export default function StudyScreen() {
       {/* Duration Picker Button */}
       <TouchableOpacity
         onPress={() => setShowPicker(true)}
-        className="flex-row justify-center items-center bg-blue-600 py-4 rounded-2xl mb-10"
+        className="flex-row justify-center items-center border-y-blue-600 border-x-blue-300 py-4 rounded-2xl mb-10"
       >
         <Clock color="white" size={20} />
         <Text className="text-white font-bold ml-2">Set Duration</Text>

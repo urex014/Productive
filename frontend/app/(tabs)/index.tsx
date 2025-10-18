@@ -1,5 +1,6 @@
 // app/dashboard.tsx
-import React, { useState, useEffect } from "react"
+import * as React from "react";
+import { useState, useEffect} from "react";
 import {
   Text,
   TouchableOpacity,
@@ -76,7 +77,7 @@ export default function DashboardScreen() {
 
 
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1 pb-20 bg-black">
       <ScrollView
         className="flex-1 px-6 pt-12"
         contentContainerStyle={{ paddingBottom: 60 }}
@@ -119,9 +120,19 @@ export default function DashboardScreen() {
   </Text>
   
   {/* Subtitle with better styling */}
-  <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">
+  {streak==1?(
+    <View>
+    <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">First day</Text>
+
+    </View>
+  ):(
+    <View>
+    <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">
     days in a row
   </Text>
+    </View>
+  )}
+  
   
   {/* Decorative elements */}
   <PulsingDots />
@@ -130,7 +141,7 @@ export default function DashboardScreen() {
         {/* Quick Actions */}
         <View className="flex-row justify-between mb-10">
           <TouchableOpacity
-            className="flex-1 mx-2 bg-[#2563eb] rounded-2xl p-6 items-center"
+            className="flex-1 mx-2 border bg-[rgb(0,0,0,0.7)] border-[#2563eb] rounded-2xl p-6 items-center"
             onPress={() => router.push("/chat/list")}
           >
             {/* <CheckCircle color="white" size={28} /> */}
@@ -141,7 +152,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="flex-1 mx-2 bg-[#10b981] rounded-2xl p-6 items-center"
+            className="flex-1 mx-2 border-[#10b981] border bg-[rgb(0,0,0,0.7)] rounded-2xl p-6 items-center"
             onPress={() => router.push("/study")}
           >
             <Target color="white" size={28} />
@@ -151,7 +162,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="flex-1 mx-2 bg-[#f59e0b] rounded-2xl p-6 items-center"
+            className="flex-1 mx-2 bg-[rgb(0,0,0,0.7)] border border-orange-500 rounded-2xl p-6 items-center"
             onPress={() => router.push("/timetable")}
           >
             <Calendar color="white" size={28} />
