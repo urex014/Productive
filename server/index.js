@@ -17,7 +17,7 @@ import timetableRoutes from "./routes/timetable.js";
 import chatRoutes from "./routes/chat.js";
 import path from 'path'
 import notificationRoutes from './routes/notification.js'
-import db from "./db/db.js"; // ✅ new DB import
+import db from "./db/db.js";
 import { fileURLToPath } from "url";
 import fetch from "node-fetch"; 
 

@@ -57,36 +57,42 @@ router.post("/register", (req, res) => {
 
   // login
   router.post("/login", (req, res) => {
-  const { email, password } = req.body;
+    try{
+      const { email, password } = req.body;
 
-  // 1. Look up user by email
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-  if (!user) {
-    return res.status(400).json({ error: "Invalid email or password" });
-  }
+      // 1. Look up user by email
+      const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+      if (!user) {
+        return res.status(400).json({ error: "Invalid email or password" });
+      }
 
-  // 2. Compare passwords
-  const validPassword = bcrypt.compareSync(password, user.password);
-  if (!validPassword) {
-    return res.status(400).json({ error: "Invalid email or password" });
-  }
+      // 2. Compare passwords
+      const validPassword = bcrypt.compareSync(password, user.password);
+      if (!validPassword) {
+        return res.status(400).json({ error: "Invalid email or password" });
+      }
 
-  // 3. Sign JWT with user info
-  const token = jwt.sign(
-    { id: user.id, username: user.username }, // payload
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+      // 3. Sign JWT with user info
+      const token = jwt.sign(
+        { id: user.id, username: user.username }, // payload
+        JWT_SECRET,
+        { expiresIn: "7d" }
+      );
 
-  // 4. Return token + user info (excluding password)
-  const { password: _, ...userWithoutPassword } = user;
+      // 4. Return token + user info (excluding password)
+      const { password: _, ...userWithoutPassword } = user;
 
-  res.json({
-    message: "Login successful",
-    token,
-    user: userWithoutPassword,
-  });
-});
+      res.json({
+        message: "Login successful",
+        token,
+        user: userWithoutPassword,
+      });
+
+    }catch(err){
+      console.log(err)
+    res.status(500).json({ error: "Login failed" });
+    }
+  })
 
 
   // get current user

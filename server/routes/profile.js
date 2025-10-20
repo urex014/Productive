@@ -61,7 +61,8 @@ const profileRoutes = (db) => {
   }
 
   try {
-    db.prepare("UPDATE users SET pushToken = ? WHERE id = ?").run(
+    // DB column is named expoPushToken in DB schema
+    db.prepare("UPDATE users SET expoPushToken = ? WHERE id = ?").run(
       expoPushToken,
       req.userId
     );
@@ -77,6 +78,8 @@ const profileRoutes = (db) => {
     const user = db
       .prepare("SELECT id, username, email, image FROM users WHERE id = ?")
       .get(req.userId);
+      console.log("req.userId:", req.userId);
+      console.log("user result:", user);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });

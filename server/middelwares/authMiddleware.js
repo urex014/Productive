@@ -1,16 +1,19 @@
 import jwt from "jsonwebtoken";
-// import crypto from 'crypto'
+
+// Keep a fallback secret (same fallback as auth routes) so verification succeeds when env var is missing
+const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "No token provided" });
 
   const token = authHeader.split(" ")[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET )
+    const decoded = jwt.verify(token, JWT_SECRET);
+    // Attach both for compatibility with routes using either property
+    req.user = decoded;
     req.userId = decoded.id;
-    // req.userId = 1;
-  //   console.info("Authenticated user id: ", req.userId)
-  // console.info("decoded:", decoded)
+    // console.info("Authenticated user id:", req.userId);
     next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });
