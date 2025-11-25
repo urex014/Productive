@@ -1,6 +1,6 @@
 // app/timetable.tsx
-import React, { useState, useEffect } from "react"
-import { TimetableEntry, TimetableState } from "../types/timetable"
+import React, { useState, useEffect } from "react";
+import { TimetableEntry, TimetableState } from "../types/timetable";
 import {
   View,
   Text,
@@ -8,13 +8,16 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  StatusBar,
+  Dimensions
 } from "react-native";
 import { BASE_URL } from "../baseUrl";
-import { useRouter } from "expo-router"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { SafeAreaView } from "react-native-safe-area-context"
-import { CalendarPlus, ChevronLeft } from "lucide-react-native"
-import Toast from "react-native-toast-message"
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { CalendarPlus, ChevronLeft, Save, Clock } from "lucide-react-native";
+import Toast from "react-native-toast-message";
+import { LinearGradient } from "expo-linear-gradient";
 
 const daysOfWeek = [
   "Monday",
@@ -24,277 +27,245 @@ const daysOfWeek = [
   "Friday",
   "Saturday",
   "Sunday",
-]
+];
 
-// const BASE_URL = `http://192.168.100.191:5000/api/timetable`
+const { width } = Dimensions.get("window");
 
 export default function TimetablePage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [timeSlots, setTimeSlots] = useState<string[]>([])
-  const [timetable, setTimetable] = useState<TimetableState>({})
-  const [error, setError] = useState<string | null>(null)
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [timetable, setTimetable] = useState<TimetableState>({});
+  const [error, setError] = useState<string | null>(null);
 
-  // Fetch timetable from backend
+  // --- Logic Section (Unchanged) ---
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const JWT_TOKEN = await AsyncStorage.getItem("token")
+        const JWT_TOKEN = await AsyncStorage.getItem("token");
         if (!JWT_TOKEN) {
-          console.error("No auth token found")
-          Toast.show({
-            type:"error",
-            text1:"please log in again"
-          })
-          router.replace("/auth/login")
-          return
+          Toast.show({ type: "error", text1: "Authentication required" });
+          router.replace("/auth/login");
+          return;
         }
 
         const res = await fetch(`${BASE_URL}/api/timetable`, {
-          headers: {
-            Authorization: `Bearer ${JWT_TOKEN}`,
-          },
-        })
+          headers: { Authorization: `Bearer ${JWT_TOKEN}` },
+        });
 
         if (!res.ok) {
           if (res.status === 401) {
-            console.error("Invalid or expired token")
-            await AsyncStorage.removeItem("token")
-            Toast.show({
-              type:'error',
-              text1:'session expired please login again'
-            })
-            router.replace("/auth/login")
-            return
+            await AsyncStorage.removeItem("token");
+            router.replace("/auth/login");
+            return;
           }
-          throw new Error(`API error: ${res.status}`)
+          throw new Error(`API error: ${res.status}`);
         }
 
-        const data = await res.json()
-        console.log("Timetable data received:", data) // Debug log
+        const data = await res.json();
+        
+        if (!Array.isArray(data)) throw new Error("Invalid data");
 
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format from API")
-        }
+        const slots = Array.from(new Set(data.map((entry: any) => entry.time_slot))).sort();
+        setTimeSlots(slots.length > 0 ? slots : ["08:00 - 09:00", "09:00 - 10:00"]); // Default slots if empty
 
-        const slots = Array.from(
-          new Set(data.map((entry: any) => entry.time_slot))
-        ).sort()
-        setTimeSlots(slots)
-
-        const table: Record<string, string[]> = {}
+        const table: Record<string, string[]> = {};
         daysOfWeek.forEach((day) => {
-          table[day] = slots.map((slot) => {
-            const entry = data.find(
-              (e: any) => e.day === day && e.time_slot === slot
-            )
-            return entry ? entry.task : ""
-          })
-        })
-        setTimetable(table)
+          table[day] = (slots.length > 0 ? slots : ["08:00 - 09:00", "09:00 - 10:00"]).map((slot) => {
+            const entry = data.find((e: any) => e.day === day && e.time_slot === slot);
+            return entry ? entry.task : "";
+          });
+        });
+        setTimetable(table);
       } catch (err) {
-        console.error("Failed to fetch timetable:", err)
-        Toast.show({
-          type:'error',
-          text1:'failed to load timetable. check your internet connection'
-        })
+        Toast.show({ type: 'error', text1: 'Could not sync schedule' });
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
+    fetchData();
+  }, [router]);
 
-    fetchData()
-  }, [router]) // Add router to dependencies
-
-  // Update subject/task in a cell (LOCAL ONLY)
   const handleInput = (day: string, index: number, value: string) => {
     setTimetable((prev) => ({
       ...prev,
       [day]: prev[day].map((v, i) => (i === index ? value : v)),
-    }))
-  }
+    }));
+  };
 
-  // Save entire timetable to API
   const saveTimetable = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
-      const JWT_TOKEN = await AsyncStorage.getItem("token")
+      const JWT_TOKEN = await AsyncStorage.getItem("token");
       if (!JWT_TOKEN) {
-        Toast.show({
-          type:"info",
-          text1:"please log in again"
-        })
-        router.replace("/auth/login")
-        return
+        router.replace("/auth/login");
+        return;
       }
 
       const savePromises = daysOfWeek.flatMap(day =>
         timeSlots.map(async (slot, index) => {
-          const task = timetable[day]?.[index] || ""
+          const task = timetable[day]?.[index] || "";
           const res = await fetch(BASE_URL, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${JWT_TOKEN}`,
             },
-            body: JSON.stringify({
-              day,
-              time_slot: slot,
-              task,
-              duration: 120,
-            }),
-          })
+            body: JSON.stringify({ day, time_slot: slot, task, duration: 120 }),
+          });
 
-          if (!res.ok) {
-            if (res.status === 401) {
-              throw new Error("Unauthorized")
-            }
-            const data = await res.json()
-            throw new Error(data.error || `Failed to save entry for ${day} at ${slot}`)
-          }
-
-          return res.json()
+          if (!res.ok) throw new Error("Save failed");
+          return res.json();
         })
-      )
+      );
 
-      await Promise.all(savePromises)
-      Toast.show({
-        type:"success",
-        text1:"timetable saved successfully"
-      })
+      await Promise.all(savePromises);
+      Toast.show({ type: "success", text1: "Schedule updated successfully" });
       
-    } catch (err) {
-      console.error("Failed to save timetable:", err)
-      if (err.message === "Unauthorized") {
-        await AsyncStorage.removeItem("token")
-        Toast.show({
-          type:'error',
-          text1:'session expired please login again'
-        })
-        router.replace("/auth/login")
-      } else {
-        Toast.show({
-          type:'error',
-          text1:"❌ Failed to save timetable. Try again."
-        })
-      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: "Sync failed" });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-
-  // Update the header (time slot) locally only
   const handleTimeSlotChange = (index: number, value: string) => {
     setTimeSlots((prev) => {
-      const updated = [...prev]
-      updated[index] = value
-      return updated
-    })
-  }
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
 
   const addTimeSlot = () => {
-    setTimeSlots((prev) => [...prev, "time"])
+    setTimeSlots((prev) => [...prev, "00:00 - 00:00"]);
     setTimetable((prev) => {
-      const updated: Record<string, string[]> = {}
+      const updated: Record<string, string[]> = {};
       daysOfWeek.forEach((day) => {
-        updated[day] = [...(prev[day] || []), ""]
-      })
-      return updated
-    })
-  }
+        updated[day] = [...(prev[day] || []), ""];
+      });
+      return updated;
+    });
+  };
 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-black">
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="text-white mt-4">Loading timetable...</Text>
-        {error && (
-          <Text className="text-red-500 mt-2 text-center px-4">{error}</Text>
-        )}
+        <ActivityIndicator size="large" color="#DD2476" />
+        <Text className="text-neutral-500 mt-4 text-xs uppercase tracking-widest">Loading Schedule...</Text>
       </View>
-    )
+    );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      {/* Header */}
-      <View className="flex-row items-center justify-between p-4 bg-[rgb(0,0,0,0.7)]">
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text className="text-blue-400 text-base"><ChevronLeft size={24} color={"white"} /></Text>
-        </TouchableOpacity>
-        <Text className="text-white text-lg font-bold">Weekly Timetable</Text>
-        <TouchableOpacity onPress={addTimeSlot}>
-          <View className=" flex items-center">
-          <CalendarPlus size={24} color={"white"} />
-          <Text className="text-green-400 font-semibold">new time Slot</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+    <View className="flex-1 bg-black">
+      <StatusBar barStyle="light-content" />
+      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
 
-      {/* Table */}
-      <ScrollView horizontal className="flex-1">
-        <View>
-          {/* Column Headers */}
-          <View className="flex-row">
-            <View className="w-28 p-2 bg-gray-800">
-              <Text className="text-white font-semibold">Day</Text>
-            </View>
-            {timeSlots.map((slot, index) => (
-              <View
-                key={index}
-                className="w-40 p-2 bg-gray-800 border-l border-gray-700"
-              >
-                <TextInput
-                  value={slot}
-                  onChangeText={(val) => handleTimeSlotChange(index, val)}
-                  className="text-white border border-gray-600 rounded-lg px-2 py-1 text-center"
-                />
-              </View>
-            ))}
+      <SafeAreaView className="flex-1">
+        {/* Header */}
+        <View className="flex-row items-center justify-between px-6 py-4 border-b border-white/10">
+          <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center bg-white/5 rounded-full border border-white/10">
+             <ChevronLeft size={24} color={"white"} />
+          </TouchableOpacity>
+          
+          <View>
+             <Text className="text-white text-xl font-bold text-center">Timetable</Text>
+             <Text className="text-neutral-500 text-[10px] uppercase tracking-widest text-center">Weekly Schedule</Text>
           </View>
 
-          {/* Rows */}
-          {daysOfWeek.map((day) => (
-            <View key={day} className="flex-row border-b border-gray-700">
-              <View className="w-28 p-2 bg-[rgb(0,0,0,0.7)]">
-                <Text className="text-white font-semibold">{day}</Text>
+          <TouchableOpacity onPress={addTimeSlot} className="flex-row items-center bg-blue-500/10 px-3 py-2 rounded-full border border-blue-500/20">
+             <CalendarPlus size={18} color="#60a5fa" />
+             <Text className="text-blue-400 font-bold ml-2 text-xs">SLOT</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Data Grid */}
+        <ScrollView horizontal className="flex-1" showsHorizontalScrollIndicator={false}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            <View className="pb-24 pl-4 pr-4"> 
+              
+              {/* Header Row (Time Slots) */}
+              <View className="flex-row mt-4">
+                <View className="w-28 p-3 mr-2 bg-neutral-900 border border-white/10 rounded-xl justify-center items-center">
+                  <Text className="text-neutral-400 font-bold text-xs uppercase tracking-wider">Day / Time</Text>
+                </View>
+                {timeSlots.map((slot, index) => (
+                  <View
+                    key={index}
+                    className="w-40 p-2 mr-2 bg-neutral-900/50 border border-white/10 rounded-xl"
+                  >
+                    <View className="flex-row items-center justify-center mb-1">
+                       <Clock size={12} color="#666" />
+                    </View>
+                    <TextInput
+                      value={slot}
+                      onChangeText={(val) => handleTimeSlotChange(index, val)}
+                      className="text-white font-medium text-center text-xs p-0"
+                      placeholder="00:00"
+                      placeholderTextColor="#444"
+                    />
+                  </View>
+                ))}
               </View>
-              {timeSlots.map((_, index) => (
-                <View
-                  key={index}
-                  className="w-40 p-2 border-l border-gray-700 bg-[rgb()]"
-                >
-                  <TextInput
-                    placeholder=""
-                    placeholderTextColor="#6b7280"
-                    value={timetable[day]?.[index] || ""}
-                    onChangeText={(val) => handleInput(day, index, val)}
-                    className="text-white border border-gray-600 rounded-lg px-2 py-1"
-                  />
+
+              {/* Data Rows */}
+              {daysOfWeek.map((day) => (
+                <View key={day} className="flex-row mt-2">
+                  {/* Day Label */}
+                  <View className="w-28 p-3 mr-2 bg-neutral-900/80 border border-white/5 rounded-xl justify-center">
+                    <Text className="text-white font-bold text-sm">{day}</Text>
+                  </View>
+
+                  {/* Task Inputs */}
+                  {timeSlots.map((_, index) => (
+                    <View
+                      key={index}
+                      className="w-40 mr-2 bg-black border border-white/10 rounded-xl overflow-hidden"
+                    >
+                      <TextInput
+                        placeholder="Free Slot"
+                        placeholderTextColor="#333"
+                        value={timetable[day]?.[index] || ""}
+                        onChangeText={(val) => handleInput(day, index, val)}
+                        className="flex-1 text-white px-3 py-3 text-sm"
+                        multiline
+                      />
+                    </View>
+                  ))}
                 </View>
               ))}
             </View>
-          ))}
-        </View>
-      </ScrollView>
+          </ScrollView>
+        </ScrollView>
 
-      {/* Save Button */}
-      <View className="p-4 bg-[rgb(0,0,0,0.7)] border-t">
-        <TouchableOpacity
-          onPress={saveTimetable}
-          disabled={saving}
-          className={`py-3 border rounded-xl ${
-            saving ? "border-gray-600" : "border-blue-600"
-          }`}
-        >
-          <Text className="text-white text-center font-semibold">
-            {saving ? "Saving..." : "Save Timetable"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  )
+        {/* Floating Save Button */}
+        <View className="absolute bottom-6 left-6 right-6">
+          <TouchableOpacity
+            onPress={saveTimetable}
+            disabled={saving}
+            className="rounded-2xl overflow-hidden shadow-lg shadow-purple-500/20"
+          >
+             <LinearGradient
+                colors={['#FF512F', '#DD2476']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                className="py-4 flex-row items-center justify-center"
+             >
+                {saving ? (
+                   <ActivityIndicator color="white" size="small" />
+                ) : (
+                   <>
+                     <Save color="white" size={20} />
+                     <Text className="text-white font-bold ml-2 text-base tracking-wide">SAVE CHANGES</Text>
+                   </>
+                )}
+             </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
 }

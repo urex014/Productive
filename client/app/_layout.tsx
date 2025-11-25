@@ -18,7 +18,7 @@ export default function RootLayout() {
 
   const defaultScreenOptions = useMemo(() => ({ headerShown: false }), []);
   const [loading, setLoading] = useState(false);
-  const [hasOnboarded, setHasOnboarded] = useState(true);
+  const [hasOnboarded, setHasOnboarded] = useState(false);
   const [showSecondSplash, setShowSecondSplash] = useState(true);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function RootLayout() {
   // Log the token when it’s ready — later, send this to your backend
   useEffect(() => {
     if (expoPushToken) {
-      console.log("Expo Push Token:", expoPushToken);
+      //console.log("Expo Push Token:", expoPushToken);
       // TODO: send expoPushToken to your backend tied to the logged-in user
     }
   }, [expoPushToken]);
@@ -46,7 +46,7 @@ export default function RootLayout() {
   // Log incoming notifications — later, you can show a banner or update UI
   useEffect(() => {
     if (notification) {
-      console.log("Notification received:", notification);
+      //console.log("Notification received:", notification);
     }
   }, [notification]);
 

@@ -22,13 +22,13 @@
       "predictiveBackGestureEnabled": false,
       "notification":{
         "icon":"./assets/images/connect-logo.png",
-        "color":"#ffffff"
+        "color":"#000000"
       }
     },
     "web": {
       "bundler":"metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/connect-logo.png"
     },
     "plugins": [
       "expo-router",

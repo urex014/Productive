@@ -1,20 +1,30 @@
 // app/auth/register.tsx
 import * as React from "react";
-import {useState} from 'react'
+import { useState, useEffect, useRef } from "react";
 import {
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
-  StyleSheet
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  ActivityIndicator,
+  Animated,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { BASE_URL } from "../../baseUrl";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotificationsAsync } from "../../hooks/usePushNotifications";
+import Toast from "react-native-toast-message";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
-  const BASE_URL = "http://192.168.100.191:5000";
   const router = useRouter();
 
   const [username, setUsername] = useState("");
@@ -22,12 +32,42 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.5,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [loading]);
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      Toast.show({ type: 'error', text1: "Passwords do not match" });
       return;
+    }
+
+    if (!username || !email || !password) {
+        Toast.show({ type: 'error', text1: "Please fill in all fields" });
+        return;
     }
 
     setLoading(true);
@@ -40,193 +80,180 @@ export default function RegisterScreen() {
       });
 
       const data = await res.json();
-      console.warn("Register response:", data); 
 
       if (!res.ok) {
-        const message = data?.error|| 'something went wrong' 
-        setError(message);
-        setLoading(false);
-        setTimeout(() => setError(""), 5000);
+        Toast.show({ type: 'error', text1: data?.error || "Registration failed" });
         return;
       }
 
       if (data.token && data.user) {
-        // Save token and user
         await AsyncStorage.setItem("token", data.token);
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
         await AsyncStorage.setItem("userId", String(data.user.id));
 
-        // Register push token
-        const expoPushToken = await registerForPushNotificationsAsync();
-        if (expoPushToken) {
-          try {
-            const pushRes = await fetch(`${BASE_URL}/api/notifications/register-token`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${data.token}`,
-              },
-              body: JSON.stringify({
-                userId: data.user.id,
-                expoPushToken,
-              }),
-            });
-
-            const pushData = await pushRes.json();
-
-            if (!pushRes.ok) {
-              console.error("Failed to save push token:", pushData);
-            }else{
-              console.info("push token saved: ", pushData.message)
+        registerForPushNotificationsAsync().then(async (token) => {
+            if(token) {
+                try {
+                    await fetch(`${BASE_URL}/api/notifications/register-token`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${data.token}`,
+                        },
+                        body: JSON.stringify({ userId: data.user.id, expoPushToken: token }),
+                    });
+                } catch(e) { console.error(e); }
             }
-          } catch (err) {
-            console.error("Push token save error:", err);
-          }
-        }
+        });
       }
-
-      // Navigate to home
+      Toast.show({ type: 'success', text1: "Welcome aboard!" });
       router.replace("/");
     } catch (err) {
-      console.error("Registration error:", err);
-      setError("Failed to register. Check your connection.");
-      setTimeout(() => setError(""), 5000);
+      Toast.show({ type: 'error', text1: "Network error" });
     } finally {
       setLoading(false);
     }
   };
 
-   return (
-    <View className="bg-primary p-6 flex-1 items-center justify-center">
-      
-      <Text style={styles.heading}>Create Account</Text>
+  return (
+    <View className="flex-1 bg-black">
+      <StatusBar barStyle="light-content" />
+      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
 
-      {/* Username */}
-      <TextInput
-        value={username}
-        onChangeText={setUsername}
-        placeholder="Username"
-        placeholderTextColor="#9ca3af"
-        style={styles.input}
-      />
+      <SafeAreaView className="flex-1">
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"} 
+            className="flex-1"
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView 
+                contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24 }}
+                keyboardShouldPersistTaps="handled"
+            >
+              
+              {/* Header */}
+              <View className="items-center mb-10">
+                <Text className="text-white text-4xl font-bold tracking-tighter">Create Account</Text>
+                <Text className="text-neutral-500 text-sm mt-2 uppercase tracking-widest">Join the productivity grid</Text>
+              </View>
 
-      {/* Email */}
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        placeholderTextColor="#9ca3af"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        style={styles.input}
-      />
+              {/* Form Container (Glass Card) */}
+              <View className="bg-neutral-900/50 border border-white/10 rounded-3xl p-6 mb-6">
+                
+                {/* Username Input */}
+                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
+                  <Feather name="user" size={20} color="#666" />
+                  <TextInput
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="Username"
+                    placeholderTextColor="#666"
+                    className="flex-1 ml-3 text-white font-medium text-base"
+                  />
+                </View>
 
-      {/* Password */}
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Password"
-        placeholderTextColor="#9ca3af"
-        secureTextEntry
-        style={styles.input}
-      />
+                {/* Email Input */}
+                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
+                  <Feather name="mail" size={20} color="#666" />
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Email Address"
+                    placeholderTextColor="#666"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    className="flex-1 ml-3 text-white font-medium text-base"
+                  />
+                </View>
 
-      {/* Confirm Password */}
-      <TextInput
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        placeholder="Confirm Password"
-        placeholderTextColor="#9ca3af"
-        secureTextEntry
-        style={[styles.input, { marginBottom: 20 }]}
-      />
+                {/* Password Input */}
+                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
+                  <Feather name="lock" size={20} color="#666" />
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Password"
+                    placeholderTextColor="#666"
+                    secureTextEntry={!showPassword}
+                    className="flex-1 ml-3 text-white font-medium text-base"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
 
-      {/* Error Message */}
-      {error ? (
-        <Text style={styles.error}>{error}</Text>
-      ) : null}
+                {/* Confirm Password Input */}
+                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-6">
+                  <Feather name="check-circle" size={20} color="#666" />
+                  <TextInput
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Confirm Password"
+                    placeholderTextColor="#666"
+                    secureTextEntry={!showConfirmPassword}
+                    className="flex-1 ml-3 text-white font-medium text-base"
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
 
-      {/* Register Button */}
-      <TouchableOpacity
-        onPress={handleRegister}
-        style={styles.button}
-        className={loading?"border flex items-center justify-center border-orange-500 p-4 rounded-full":"rounded-full  flex items-center justify-center w-full bg-purple-500 p-4"}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Registering..." : "Sign Up"}
-        </Text>
-      </TouchableOpacity>
+                {/* Register Button with Pulsing Animation */}
+                <View className="relative items-center justify-center">
+                    {loading && (
+                        <Animated.View
+                            style={{
+                                position: 'absolute',
+                                top: -4, bottom: -4, left: -4, right: -4,
+                                borderRadius: 20,
+                                borderWidth: 2,
+                                borderColor: '#8b5cf6', // Violet-500 (pulsing color)
+                                opacity: pulseAnim.interpolate({
+                                    inputRange: [1, 1.5],
+                                    outputRange: [1, 0]
+                                }),
+                                transform: [{ scale: pulseAnim }]
+                            }}
+                        />
+                    )}
 
-      {/* Already have an account */}
-      <View style={styles.bottomLinks}>
-        <Text style={styles.grayText}>Already have an account? </Text>
-        <TouchableOpacity onPress={() => router.push("/auth/login")}>
-          <Text style={styles.whiteText}>Log In</Text>
-        </TouchableOpacity>
-      </View>
+                    <TouchableOpacity
+                        onPress={handleRegister}
+                        disabled={loading}
+                        className={`w-full py-4 rounded-2xl flex-row justify-center items-center ${loading ? 'bg-violet-900' : 'bg-violet-600'}`}
+                        style={{
+                            shadowColor: "#8b5cf6",
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 10,
+                        }}
+                    >
+                        {loading ? (
+                            <Text className="text-violet-200 font-bold text-lg tracking-wide uppercase">
+                                Processing...
+                            </Text>
+                        ) : (
+                            <Text className="text-white font-bold text-lg tracking-wide uppercase">
+                                Sign Up
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                </View>
+
+              </View>
+
+              {/* Bottom Links */}
+              <View className="flex-row justify-center items-center mt-4 pb-10">
+                <Text className="text-neutral-500">Already have an account? </Text>
+                <TouchableOpacity onPress={() => router.push("/auth/login")}>
+                  <Text className="text-white font-bold ml-1">Log In</Text>
+                </TouchableOpacity>
+              </View>
+
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor:"#000000",
-    paddingHorizontal: 20,
-    justifyContent: "center",
-  },
-  heading: {
-    color: "white",
-    fontSize: 36,
-    fontWeight: "bold",
-    marginBottom: 30,
-    textAlign: "center",
-  },
-  input: {
-    width: "80%",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    color: "white",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-  button: {
-    width: "80%",
-    paddingVertical: 16,
-    borderRadius: 25,
-    backgroundColor: "#7b5fff",
-    alignItems: "center",
-    shadowColor: "#7b5fff",
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-  },
-  buttonDisabled: {
-    width: "100%",
-    paddingVertical: 16,
-    borderRadius: 25,
-    backgroundColor: "gray",
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 18,
-  },
-  error: {
-    color: "red",
-    fontWeight: "500",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  bottomLinks: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 25,
-  },
-  grayText: { color: "#ccc" },
-  whiteText: { color: "white", fontWeight: "600" },
-});

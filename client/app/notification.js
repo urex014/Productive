@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import Toast from "react-native-toast-message";
 
 // Ask for permission and get token
 export async function registerForPushNotificationsAsync() {
@@ -21,12 +22,15 @@ export async function registerForPushNotificationsAsync() {
   }
 
   if (finalStatus !== "granted") {
-    alert("Failed to get push token for push notification!");
+    Toast.show({
+      type:"error",
+      text1:"failed to get push token for push notification. permission denied "
+    })
     return;
   }
 
   token = (await Notifications.getExpoPushTokenAsync()).data;
-  console.log("Push token:", token);
+  //console.log("Push token:", token);
 
   return token;
 }

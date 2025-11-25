@@ -1,13 +1,14 @@
 // app/dashboard.tsx
 import * as React from "react";
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import {
   Text,
   TouchableOpacity,
   View,
   ScrollView,
   Image,
-} from "react-native"
+  StatusBar,
+} from "react-native";
 import {
   Flame,
   Calendar,
@@ -15,207 +16,226 @@ import {
   Target,
   Bell,
   User,
-} from "lucide-react-native"
-import PulsingDots from "../../components/PulsingDots"
-import { useRouter } from "expo-router"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+  ChevronRight
+} from "lucide-react-native";
+import PulsingDots from "../../components/PulsingDots";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import {BASE_URL} from "../../baseUrl";
+import { BASE_URL } from "../../baseUrl";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function DashboardScreen() {
-  // const BASE_URL = "http://192.168.100.191:5000"
-  const router = useRouter()
-  const [reminders, setReminders] = useState<any[]>([])
-  const [streak, setStreak] = useState<number>(0)
-  const [user, setUser] = useState<any>(null)
+  const router = useRouter();
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [streak, setStreak] = useState<number>(0);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    // only reminders, streak, and profile
     const fetchAll = async () => {
       try {
-        const token = await AsyncStorage.getItem("token")
-        // console.log('token: ',token)
+        const token = await AsyncStorage.getItem("token");
 
-        // fetch reminders
         const remRes = await fetch(`${BASE_URL}/api/reminders`, {
           headers: { Authorization: `Bearer ${token}` },
-        })
-        const remData = await remRes.json()
-        setReminders(Array.isArray(remData) ? remData : remData.reminders || [])
+        });
+        const remData = await remRes.json();
+        setReminders(Array.isArray(remData) ? remData : remData.reminders || []);
 
-        // fetch streak
         const streakRes = await fetch(`${BASE_URL}/api/streaks`, {
           headers: { Authorization: `Bearer ${token}` },
-        })
-        const streakData = await streakRes.json()
-        setStreak(streakData.currentStreak || 0)
+        });
+        const streakData = await streakRes.json();
+        setStreak(streakData.currentStreak || 0);
 
-        // fetch profile
         const profileRes = await fetch(`${BASE_URL}/api/profile`, {
           headers: { Authorization: `Bearer ${token}` },
-        })
-        const profileData = await profileRes.json()
-        setUser(profileData.user)
-      } catch (err) {
-        Toast.show({
-          type: "error",
-          text1: "Failed to fetch dashboard data",
-          text2: String(err),
-        })
+        });
+        const profileData = await profileRes.json();
+        setUser(profileData.user);
+      } catch (err: any) {
+        Toast.show({ type: "error", text1: "Connection Error" });
       }
-    }
+    };
 
-    // run once at mount
-    fetchAll()
+    fetchAll();
+    const interval = setInterval(fetchAll, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
-    // poll every 10 seconds
-    const interval = setInterval(fetchAll, 5000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // upcoming = reminders only
   const upcomingItems = reminders
     .map((r) => ({ ...r, type: "reminder" }))
-    .sort(
-      (a, b) =>
-        new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime()
-    )
-
-    // console.log(user)
-
+    .sort((a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime());
 
   return (
-    <View className="flex-1 pb-20 bg-black">
-      <ScrollView
-        className="flex-1 px-6 pt-12"
-        contentContainerStyle={{ paddingBottom: 60 }}
-      >
-        {/* Welcome + Profile */}
-        <View className="flex-row justify-between items-center mb-6">
-          <Text className="text-3xl font-bold tracking-tight text-gray-300">
-            Welcome, {user?.username || "Guest"}
-          </Text>
+    <View className="flex-1 bg-black">
+      <StatusBar barStyle="light-content" />
+      
+      {/* "Void" Background: Pure Black to Very Dark Gray */}
+      <LinearGradient
+        colors={['#000000', '#050505', '#121212']}
+        className="absolute inset-0"
+      />
 
-          <TouchableOpacity
-            className="w-12 h-12 rounded-full bg-gray-700 overflow-hidden items-center justify-center"
-            onPress={() => router.push("/profile")}
-          >
-            {user?.image ? (
-              <Image
-                source={{ uri: user.image?`${BASE_URL}${user.image}`:"https://cdn-icons-png.flaticon.com/512/149/149071.png" }}
-                className="w-12 h-12 rounded-full"
-                resizeMode="cover"
-              />
-            ) : (
-              <User color="white" size={28} />
-            )}
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView className="flex-1">
+        <ScrollView
+          className="flex-1 px-6 pt-4"
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Section */}
+          <View className="flex-row justify-between items-center mb-8">
+            <View>
+              <Text className="text-neutral-500 text-xs font-bold tracking-[0.2em] uppercase">
+                Dashboard
+              </Text>
+              <Text className="text-3xl font-bold text-white mt-1">
+                Hello, {user?.username || "Guest"}
+              </Text>
+            </View>
 
-        {/* Streak Card */}
-        <View className="bg-gradient-to-br from-[#2a2a4a] via-[#1f1f3a] to-[#151529] rounded-3xl p-8 mb-8 items-center border border-white/5 shadow-2xl shadow-purple-500/10">
-  {/* Animated glow effect */}
-  <View className="absolute -inset-2 bg-gradient-to-r from-orange-500/20 via-purple-500/10 to-cyan-500/10 rounded-3xl blur-md"></View>
-  
-  {/* Icon with gradient background */}
-  <View className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 p-4 rounded-2xl mb-4 border border-orange-500/20">
-    <Flame color="#f97316" size={44} />
-  </View>
-  
-  {/* Streak number with gradient text */}
-  <Text className="text-6xl  font-black mt-2  bg-clip-text bg-gradient-to-b text-white from-white to-gray-300">
-    {streak}
-  </Text>
-  
-  {/* Subtitle with better styling */}
-  {streak===1?(
-    <View>
-    <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">First day</Text>
-
-    </View>
-  ):(
-    <View>
-    <Text className="text-gray-300/90 mt-3 text-lg font-medium tracking-wide">
-    days in a row
-  </Text>
-    </View>
-  )}
-  
-  
-  {/* Decorative elements */}
-  <PulsingDots />
-</View>
-
-        {/* Quick Actions */}
-        <View className="flex-row justify-between mb-10">
-          <TouchableOpacity
-            className="flex-1 mx-2 border bg-[rgb(0,0,0,0.7)] border-[#2563eb] rounded-2xl p-6 items-center"
-            onPress={() => router.push("/chat/list")}
-          >
-            {/* <CheckCircle color="white" size={28} /> */}
-            <MessageCircle color="white" size={28} />
-            <Text className="text-white mt-3 font-semibold text-sm">
-              Chat
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-1 mx-2 border-[#10b981] border bg-[rgb(0,0,0,0.7)] rounded-2xl p-6 items-center"
-            onPress={() => router.push("/study")}
-          >
-            <Target color="white" size={28} />
-            <Text className="text-white mt-3 font-semibold text-sm">
-              Study
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-1 mx-2 bg-[rgb(0,0,0,0.7)] border border-orange-500 rounded-2xl p-6 items-center"
-            onPress={() => router.push("/timetable")}
-          >
-            <Calendar color="white" size={28} />
-            <Text className="text-white mt-3 font-semibold text-sm">
-              Timetable
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Upcoming Section */}
-        <Text className="text-white text-xl font-bold mb-5">Upcoming</Text>
-
-        {upcomingItems.length > 0 ? (
-          upcomingItems.map((item) => (
-            <View
-              key={item.id}
-              className="bg-[#1f2937] rounded-2xl p-5 mb-4"
+            <TouchableOpacity
+              onPress={() => router.push("/profile")}
+              className="w-12 h-12 rounded-full border border-neutral-800 bg-neutral-900 p-0.5"
             >
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center">
-                  <Bell color="#f59e0b" size={20} />
-                  <Text
-                    className="text-white font-semibold text-base ml-2"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {item.note}
+              {user?.image ? (
+                <Image
+                  source={{ uri: `${BASE_URL}${user.image}` }}
+                  className="w-full h-full rounded-full"
+                />
+              ) : (
+                <View className="w-full h-full rounded-full bg-black items-center justify-center">
+                  <User color="#555" size={24} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Hero Card: Streak (Darker Base) */}
+          <View className="rounded-3xl overflow-hidden mb-8 border border-white/5 bg-neutral-900/30 relative">
+            {/* Very subtle color tint, mostly black */}
+            <LinearGradient
+              colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.4)']}
+              className="absolute inset-0"
+            />
+            
+            {/* Top Glowing Edge */}
+            <LinearGradient
+              colors={['#FF512F', '#DD2476', 'transparent']}
+              start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+              className="h-[1px] w-full opacity-70 absolute top-0"
+            />
+
+            <View className="p-6 flex-row justify-between items-center">
+              <View>
+                <View className="flex-row items-center space-x-2 mb-2">
+                  <Flame color="#FF512F" size={20} fill="rgba(255, 81, 47, 0.1)" />
+                  <Text className="text-white/60 font-bold tracking-widest text-[10px] uppercase ml-2">
+                    Current Streak
                   </Text>
                 </View>
-
-                {/* Type label */}
-                <Text className="text-xs px-2 py-1 rounded-full bg-yellow-600 text-white">
-                  Reminder
+                <Text className="text-5xl font-black text-white shadow-black shadow-md">
+                  {streak} <Text className="text-lg font-medium text-neutral-600">days</Text>
+                </Text>
+                <Text className="text-neutral-500 text-xs mt-2 w-32">
+                  Consistency is key.
                 </Text>
               </View>
-
-              <Text className="text-gray-400 text-sm">{item.remindAt}</Text>
+              
+              <View className="scale-110 opacity-80">
+                <PulsingDots /> 
+              </View>
             </View>
-          ))
-        ) : (
-          <Text className="text-gray-400 text-center mt-20">
-            No upcoming reminders. Time to relax!
-          </Text>
-        )}
-      </ScrollView>
+          </View>
+
+          {/* Quick Actions Grid (Darkened) */}
+          <Text className="text-white/90 text-lg font-bold mb-4 mt-2">Modules</Text>
+          <View className="flex-row justify-between mb-8">
+            <QuickActionCard 
+              icon={<MessageCircle color="#3b82f6" size={26} />} // Blue-500
+              label="Chat"
+              // Dark gradient
+              gradient={['rgba(59, 130, 246, 0.15)', 'transparent']}
+              borderColor="border-blue-900/30"
+              onPress={() => router.push("/chat/list")}
+            />
+            <QuickActionCard 
+              icon={<Target color="#22c55e" size={26} />} // Green-500
+              label="Study"
+              gradient={['rgba(34, 197, 94, 0.15)', 'transparent']}
+              borderColor="border-green-900/30"
+              onPress={() => router.push("/study")}
+            />
+            <QuickActionCard 
+              icon={<Calendar color="#f472b6" size={26} />} // Pink-400
+              label="Timetable"
+              gradient={['rgba(244, 114, 182, 0.15)', 'transparent']}
+              borderColor="border-pink-900/30"
+              onPress={() => router.push("/timetable")}
+            />
+          </View>
+
+          {/* Upcoming Reminders (Dark Cards) */}
+          <View className="flex-row justify-between items-end mb-4">
+            <Text className="text-white/90 text-lg font-bold">Upcoming</Text>
+            <TouchableOpacity>
+              <Text className="text-neutral-600 text-xs">View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {upcomingItems.length > 0 ? (
+            upcomingItems.map((item) => (
+              <View 
+                key={item.id} 
+                // Using neutral-900 for the card background
+                className="flex-row items-center justify-between bg-neutral-900/60 rounded-2xl p-4 mb-3 border border-white/5"
+              >
+                <View className="flex-row items-center flex-1">
+                  <View className="bg-black border border-neutral-800 p-3 rounded-full mr-4">
+                    <Bell color="#fbbf24" size={18} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-neutral-200 font-semibold text-base mb-1" numberOfLines={1}>
+                      {item.note}
+                    </Text>
+                    <Text className="text-neutral-600 text-xs">
+                      {new Date(item.remindAt).toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight color="#333" size={20} />
+              </View>
+            ))
+          ) : (
+             <View className="items-center justify-center p-10 bg-neutral-900/20 rounded-2xl border border-dashed border-neutral-800">
+               <Target color="#333" size={40} />
+               <Text className="text-neutral-600 mt-2 text-sm">No tasks pending</Text>
+             </View>
+          )}
+
+        </ScrollView>
+      </SafeAreaView>
     </View>
-  )
+  );
 }
+
+// Helper for Grid Buttons (Updated for Dark Theme)
+const QuickActionCard = ({ icon, label, onPress, gradient, borderColor }: any) => (
+  <TouchableOpacity
+    onPress={onPress}
+    // Using bg-neutral-950 for a very dark card base
+    className={`w-[30%] aspect-square rounded-2xl items-center justify-center overflow-hidden border bg-neutral-950 ${borderColor || 'border-neutral-800'}`}
+  >
+    <LinearGradient
+      colors={gradient}
+      className="absolute inset-0 opacity-50"
+    />
+    <View className="z-10 items-center">
+      {icon}
+      <Text className="text-neutral-300 mt-3 font-medium text-xs tracking-wide">
+        {label}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);

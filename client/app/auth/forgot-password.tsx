@@ -1,9 +1,11 @@
 // app/forgot-password.tsx
 import React, { useState } from "react"
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from "react-native"
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from "react-native"
 import { BlurView } from "expo-blur"
+import Toast from "react-native-toast-message"
+import { BASE_URL } from "../../baseUrl"
 
-const API_BASE = "http://your-api-url.com/api/auth"
+
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("")
@@ -11,13 +13,16 @@ export default function ForgotPassword() {
 
   const handleGetCode = async () => {
     if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email address")
+      Toast.show({
+        type:"error",
+        text1:"Error, please enter your email address"
+      })
       return
     }
 
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE}/forgot-password`, {
+      const res = await fetch(`${BASE_URL}/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -25,11 +30,17 @@ export default function ForgotPassword() {
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || "Failed to send code")
-
-      Alert.alert("Success", "A reset code has been sent to your email.")
+      
+      Toast.show({
+        type:"success",
+        text1:"succes, a reset code has been sent to your email"
+      })
     } catch (err: any) {
       console.error("Forgot password error:", err)
-      Alert.alert("Error", err.message || "Something went wrong")
+      Toast.show({
+        type:'error',
+        text1:'Sumn went wrong'
+      })
     } finally {
       setLoading(false)
     }

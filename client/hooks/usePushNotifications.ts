@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import Toast from 'react-native-toast-message';
 
 // Configure how notifications are handled globally
 Notifications.setNotificationHandler({
@@ -38,7 +39,10 @@ async function sendPushNotification(expoPushToken: string) {
 
 // Error helper
 function handleRegistrationError(errorMessage: string) {
-  alert(errorMessage);
+  Toast.show({
+    type:'error',
+    text1:`${errorMessage}`
+  })
   console.warn(errorMessage)
   throw new Error(errorMessage);
 }
@@ -85,7 +89,7 @@ async function registerForPushNotificationsAsync() {
         })
       ).data;
 
-      console.log('Expo Push Token:', pushTokenString);
+      //console.log('Expo Push Token:', pushTokenString);
       return pushTokenString;
     } catch (e: unknown) {
       handleRegistrationError(`${e}`);
@@ -114,7 +118,7 @@ export default function usePushNotifications() {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
+      //console.log('Notification response:', response);
     });
 
     return () => {

@@ -1,304 +1,275 @@
-// app/ChatRoom.jsx
-import * as  React from "react";
-import {useState, useEffect, useRef} from 'react'
+import { useRouter, useFocusEffect } from "expo-router";
+import * as React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TextInput,
   TouchableOpacity,
-  Platform,
+  ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Alert,
+  TextInput,
+  StatusBar,
+  Keyboard,
+  TouchableWithoutFeedback
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ChevronLeft } from "lucide-react-native";
-import * as Notifications from "expo-notifications";
-import {useSocket } from "../context/socketContext";
-import { registerForPushNotificationsAsync } from "../../hooks/usePushNotifications";
+import { ChevronLeft, Search, MessageSquare, User, Zap } from "lucide-react-native";
+import { BASE_URL } from "../../baseUrl";
+import Toast from "react-native-toast-message";
+import { LinearGradient } from "expo-linear-gradient";
+import { getImageUrl } from "../../utils/imageUrl"; 
 
-export default function ChatRoom() {
-  const BASE_URL = "http://192.168.100.30:5000";
-  const { chatId, displayName, displayImage } = useLocalSearchParams();
+export default function ChatList() {
   const router = useRouter();
-  const { socket, isConnected } = useSocket() ?? { socket: null, isConnected: false };
 
-  const [loading, setLoading] = useState(true);
-  type Message = {
-    id?: string | number;
-    message: string | null;
-    senderId: string | number;
-    senderName?: string;
-  };
+  const [userId, setUserId] = useState<number | null>(null);
+  const [chats, setChats] = useState([]);
+  const [filteredChats, setFilteredChats] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [userId, setUserId] = useState(null);
-  const flatListRef = useRef<FlatList<Message>>(null);
-
-  // Load logged-in user id once
   useEffect(() => {
-    const loadUser = async () => {
-      const stored = await AsyncStorage.getItem("user");
-      if (stored) setUserId(JSON.parse(stored).id);
+    const fetchUserId = async () => {
+      try {
+        const storedId = await AsyncStorage.getItem("userId");
+        if (storedId) setUserId(Number(storedId));
+      } catch (err) {
+        console.error("Error getting userId", err);
+      }
     };
-    loadUser();
+    fetchUserId();
   }, []);
 
-  // Register push token once userId is loaded
+  // Define fetch function
+  const fetchChats = async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/chats/user/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch chats");
+      const data = await res.json();
+      setChats(data);
+      setFilteredChats(data);
+    } catch (err) {
+      console.error("Error fetching chats:", err);
+    }
+  };
+
+  // 1. FIX: Use useFocusEffect to refresh list whenever screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+    }, [userId])
+  );
+
+  // 2. Keep interval for background updates while on screen
   useEffect(() => {
-    const registerToken = async () => {
-      if (!userId) return;
-      try {
-        const expoPushToken = await registerForPushNotificationsAsync();
-        if (expoPushToken) {
-          await fetch(`${BASE_URL}/api/users/push-token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, token: expoPushToken }),
-          });
-        }
-      } catch (err) {
-        console.error("Failed to register push token:", err);
-      }
-    };
-    registerToken();
+    const interval = setInterval(fetchChats, 10000);
+    return () => clearInterval(interval);
   }, [userId]);
 
-  // Foreground notification listener
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
-      const { title, body, data } = notification.request.content;
-      if (data?.type === "chat_message" && data.chatId === chatId && data.senderId !== userId) {
-        setMessages(prev => [
-          ...prev,
-          {
-            message: body,
-            senderId: data.senderId as string | number,
-            senderName: data.senderName as string | undefined,
-          },
-        ]);
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }
-    });
-    return () => subscription.remove();
-  }, [chatId, userId]);
+  const searchUsers = async (text: string) => {
+    setQuery(text);
+    if (!text.trim()) {
+      setSearchResults([]);
+      setFilteredChats(chats);
+      return;
+    }
+    try {
+      const token = await AsyncStorage.getItem("token");
+      // Ensure we send auth header if backend requires it for search
+      const res = await fetch(`${BASE_URL}/api/chats/search/users?q=${encodeURIComponent(text)}`, {
+         headers: { Authorization: `Bearer ${token}` } 
+      });
+      
+      if (!res.ok) throw new Error("Failed to search users");
+      const data = await res.json();
+      setSearchResults(data);
+    } catch (err) {
+      console.error("Error searching users:", err);
+    }
+  };
 
-  // Fetch chat messages
-  const fetchChat = async () => {
-    if (!chatId) return;
+  const startChat = async (otherUserId: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/chats/${chatId}/messages`);
-      if (!res.ok) throw new Error("Failed to fetch chat");
-      const data = await res.json();
-      setMessages(data || []);
+      const res = await fetch(`${BASE_URL}/api/chats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "direct",
+          participants: [Number(userId), Number(otherUserId)],
+        }),
+      });
+
+      const chat = await res.json();
+      if (chat.error) {
+        Toast.show({ type: 'error', text1: chat.error });
+        return;
+      }
+
+      await AsyncStorage.setItem("activeChat", JSON.stringify(chat));
+
+      // Navigate immediately with the data we received
+      router.push({
+        pathname: "/chat/ChatRoom",
+        params: {
+          chatId: chat.id,
+          displayName: chat.displayName || "Unknown User", // Fallback
+          displayImage: chat.displayImage ? `${BASE_URL}${chat.displayImage}` : ""
+        },
+      });
+      setQuery(""); 
     } catch (err) {
-      console.error("Error fetching chat:", err);
+      Toast.show({ type: 'error', text1: "Error starting chat." });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchChat();
-  }, [chatId]);
+  // --- Render Items ---
 
-  // WebSocket: join room and listen for new messages
-  useEffect(() => {
-    if (!socket || !isConnected || !chatId) return;
+  const renderChatItem = ({ item }: { item: any }) => {
+    const isAI = item.type === "ai";
+    const profilePic = getImageUrl(item.displayImage, isAI ? 'bot' : 'user'); 
 
-    socket.emit("joinRoom", chatId);
+    return (
+      <TouchableOpacity
+        className="flex-row items-center p-4 mb-3 bg-neutral-900/60 border border-white/5 rounded-2xl"
+        activeOpacity={0.7}
+        onPress={() => {
+          router.push({
+            pathname: "/chat/ChatRoom",
+            params: {
+              chatId: item.id,
+              displayName: item.displayName,
+              displayImage: item.displayImage ? `${BASE_URL}${item.displayImage}` : ""
+            },
+          });
+        }}
+      >
+        <View className="relative">
+          <Image
+            source={{ uri: profilePic }}
+            className="w-12 h-12 rounded-full bg-neutral-800"
+          />
+          <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
+        </View>
 
-    interface IncomingMessage {
-      id?: string | number;
-      message: string | null;
-      senderId: string | number;
-      senderName?: string;
-    }
-
-    const handleMessage = (msg: IncomingMessage) => {
-      setMessages((prev: IncomingMessage[]) => [...prev, msg]);
-      flatListRef.current?.scrollToEnd({ animated: true });
-
-      // Optional foreground logging
-      if (msg.senderId !== userId) console.log("New incoming message:", msg.message);
-    };
-
-    socket.on("receiveMessage", handleMessage);
-
-    return () => {
-      socket.off("receiveMessage", handleMessage);
-      socket.emit("leaveRoom", chatId);
-    };
-  }, [socket, isConnected, chatId]);
-
-  // Send message
-  const sendMessage = () => {
-    if (!newMessage.trim() || !userId || !socket) return;
-
-    socket.emit("sendMessage", { chatId, senderId: userId, message: newMessage });
-    setNewMessage("");
+        <View className="flex-1 ml-4 justify-center">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-white font-bold text-base tracking-wide">
+              {item.displayName}
+            </Text>
+            {isAI && (
+               <View className="bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+                  <Text className="text-purple-400 text-[10px] font-bold">BOT</Text>
+               </View>
+            )}
+          </View>
+          <Text numberOfLines={1} className="text-neutral-500 text-xs mt-1">
+            {isAI ? "Your productivity assistant" : item.lastMessage || "Start the conversation..."}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
-  if (loading) {
-    return (
-      <View className="flex-1 bg-primary">
-  {/* Header */}
-  <View className="pt-4 px-5">
-    <TouchableOpacity onPress={() => router.back()} className="self-start">
-      <ChevronLeft size={24} color="white" />
+  const renderUserItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      className="flex-row items-center p-4 mb-3 bg-neutral-900/40 border border-dashed border-white/10 rounded-2xl"
+      onPress={() => startChat(item.id)}
+    >
+      <View className="w-12 h-12 rounded-full bg-neutral-800 items-center justify-center mr-4 border border-white/10">
+         {item.image ? (
+            <Image source={{ uri: item.image }} className="w-full h-full rounded-full" />
+         ) : (
+            <User size={20} color="#666" />
+         )}
+      </View>
+      <View>
+        <Text className="text-white font-bold text-base">{item.username}</Text>
+        <Text className="text-neutral-500 text-xs">Tap to message</Text>
+      </View>
+      <View className="ml-auto bg-white/5 p-2 rounded-full">
+         <Zap size={16} color="#fbbf24" />
+      </View>
     </TouchableOpacity>
-  </View>
+  );
 
-  {/* Chat list skeleton */}
-  <View className="flex-1 bg-primary">
-  {/* Shimmer overlay for animation */}
-  <View className="absolute inset-0 z-10">
-    <View className="h-full w-20 bg-white/10 shimmer-animation" style={{transform: [{skewX: '-20deg'}]}}></View>
-  </View>
-
-  {/* Chat Header */}
-  <View className="pt-4 px-5 pb-3 border-b border-gray-700">
-    <View className="flex-row items-center justify-between">
-      <View className="flex-row items-center">
-        <TouchableOpacity onPress={() => router.back()} className="mr-3">
-          <ChevronLeft size={24} color="white" />
-        </TouchableOpacity>
-        <View className="w-10 h-10 bg-gray-600 rounded-full"></View>
-        <View className="ml-3">
-          <View className="w-32 h-4 bg-gray-600 rounded-full mb-2"></View>
-          <View className="w-20 h-3 bg-gray-600 rounded-full"></View>
-        </View>
-      </View>
-      <View className="flex-row space-x-4">
-        <View className="w-6 h-6 bg-gray-600 rounded"></View>
-        <View className="w-6 h-6 bg-gray-600 rounded"></View>
-      </View>
-    </View>
-  </View>
-
-  {/* Simplified Messages */}
-  <View className="flex-1 px-4 pt-4">
-    {[1, 2, 3, 4, 5].map((item) => (
-      <View key={item} className={`flex-row mb-4 ${item % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-        {item % 2 === 0 ? (
-          // Outgoing message
-          <View className="flex-row mr-4 items-end space-x-2 w-[40%]">
-            <View className="flex-1 bg-blue-500 rounded-2xl rounded-tr-none p-3">
-              <View className="h-4 bg-blue-400 rounded-full mb-1 w-3/4"></View>
-            </View>
-            {/* <View className="w-6 h-6 bg-blue-400 rounded-full"></View> */}
-          </View>
-        ) : (
-          // Incoming message
-          <View className="flex-row items-end space-x-2 w-[40%]">
-            {/* <View className="w-6 h-6 bg-gray-600 rounded-full"></View> */}
-            <View className="flex-1 bg-gray-700 rounded-2xl rounded-tl-none p-3">
-              <View className="h-4 bg-gray-600 rounded-full w-1/2"></View>
-            </View>
-          </View>
-        )}
-      </View>
-    ))}
-  </View>
-
-  {/* Input Area */}
-  <View className="px-4 pb-6 pt-3">
-    <View className="h-12 bg-gray-700 rounded-full"></View>
-  </View>
-</View>
-
-  
-  
-
-</View>
-    );
-  }
-  const uniqueMessages = messages.filter(
-  (msg, idx, arr) => arr.findIndex(m => m.id === msg.id) === idx
-);
-
-const handleDeleteMessage = async (messageId: string) => {
-  try {
-    await fetch(`${BASE_URL}/messages/${messageId}`, {
-      method: "DELETE",
-    })
-    // Optimistically remove from state
-    setMessages(prev => prev.filter(m => m.id !== messageId))
-  } catch (err) {
-    console.error("Delete failed", err)
-  }
-}
-
-const editMessages = (messageId: string, currentText: string) => {
-  Alert.alert(
-    "Delete",
-    "Delete chat?",
-    [ 
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => handleDeleteMessage(messageId),
-      },
-      { text: "Cancel", style: "cancel" },
-    ],
-    { cancelable: true }
-  )
-}
   return (
-    <KeyboardAvoidingView
-    className="bg-primary"
-    style={{flex:1}}
-    behavior={Platform.OS === "android"?"height":"padding"}
-    keyboardVerticalOffset={0}>
-    <SafeAreaView className="flex-1 bg-primary">
-      {/* Chat Header */}
-      <View className="flex-row items-center p-4 border-b border-gray-800 bg-primary">
-        <TouchableOpacity onPress={() => router.back()} className="mr-4">
-          <ChevronLeft size={24} color="white" />
-        </TouchableOpacity>
-        <Image
-          source={{ uri: Array.isArray(displayImage) ? displayImage[0] : (displayImage || "https://img.icons8.com/ios-filled/100/user-male-circle.png") }}
-          className="w-10 h-10 rounded-full mr-3"
-        />
-        <Text className="text-white text-xl font-bold">{displayName}</Text>
-      </View>
+    <View className="flex-1 bg-black">
+      <StatusBar barStyle="light-content" />
+      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
 
-      {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={uniqueMessages}
-        keyExtractor={(item, index) => item.id?.toString() ?? item.message ?? `key-${index}`}
-        renderItem={({ item }) => (
-          <TouchableOpacity onLongPress={()=>{editMessages(item.id as string, item.message ?? "")}} className={`p-3 my-1 rounded-3xl max-w-[75%] ${item.senderId === userId ? "bg-blue-600 self-end rounded-br-none" : "bg-gray-700 self-start rounded-tl-none"}`}>
-            {item.senderId !== userId && <Text className="text-gray-300 text-xs mb-1">{item.senderName || "User"}</Text>}
-            <Text className="text-white">{item.message}</Text>
+      <SafeAreaView className="flex-1 px-5 pt-4">
+        <View className="flex-row items-center mb-6">
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            className="w-10 h-10 items-center justify-center bg-white/5 rounded-full border border-white/10 mr-4"
+          >
+            <ChevronLeft size={24} color="white" />
           </TouchableOpacity>
-        )}
-        contentContainerStyle={{ padding: 10 }}
-        ListEmptyComponent={<Text className="text-gray-400 text-center mt-4">No messages yet. Start the conversation!</Text>}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
+          <View>
+             <Text className="text-3xl font-bold text-white">Messages</Text>
+             <Text className="text-neutral-500 text-xs uppercase tracking-widest">Find friends</Text>
+          </View>
+        </View>
 
-      {/* Input */}
-  
-      <View className="flex-row items-center p-3 border-t bg-primary">
-        <TextInput
-          value={newMessage}
-          onChangeText={setNewMessage}
-          placeholder="Type a message..."
-          placeholderTextColor="#aaa"
-          className="flex-1 bg-gray-800 text-white p-3 rounded-2xl mr-2"
-        />
-        <TouchableOpacity onPress={sendMessage} className="bg-blue-600 p-3 rounded-full">
-          <Text className="text-white font-bold">➤</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-    </KeyboardAvoidingView>
+        <View className="mb-6">
+          <View className="flex-row items-center bg-neutral-900/80 border border-white/10 rounded-2xl px-4 py-3">
+             <Search size={20} color="#666" />
+             <TextInput
+                value={query}
+                onChangeText={searchUsers}
+                placeholder="Search operatives..."
+                placeholderTextColor="#666"
+                className="flex-1 ml-3 text-white text-base"
+             />
+          </View>
+        </View>
+
+        {query.trim() && searchResults.length > 0 ? (
+          <View className="flex-1">
+             <Text className="text-white/50 text-xs font-bold mb-3 uppercase">Search Results</Text>
+             <FlatList
+               data={searchResults}
+               keyExtractor={(item) => item.id.toString()}
+               renderItem={renderUserItem}
+               showsVerticalScrollIndicator={false}
+             />
+          </View>
+        ) : filteredChats.length > 0 ? (
+          <FlatList
+            data={filteredChats}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderChatItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View className="flex-1 justify-center items-center opacity-50 pb-20">
+              <View className="w-20 h-20 bg-neutral-900 rounded-full items-center justify-center border border-white/5 mb-4">
+                 <MessageSquare size={32} color="#333" />
+              </View>
+              <Text className="text-neutral-500 font-medium text-center max-w-[250px]">
+                 NO current chats. Search for users to start texting
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
+        )}
+
+        {loading && (
+          <View className="absolute inset-0 bg-black/80 flex justify-center items-center z-50">
+             <ActivityIndicator size="large" color="#DD2476" />
+             <Text className="text-white mt-4 font-bold tracking-widest text-xs">ESTABLISHING LINK...</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }

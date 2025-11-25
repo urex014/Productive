@@ -1,8 +1,6 @@
-// app/ChatList.jsx
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import * as React from 'react';
-import { getImageUrl, CONFIG } from "../../utils/imageUrl";
-import {useState, useEffect} from 'react'
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,15 +8,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-  Pressable,
-  Alert,
+  TextInput,
+  StatusBar,
+  Keyboard,
+  TouchableWithoutFeedback
 } from "react-native";
-import { icons } from "../../constants/icons";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import SearchBar from "../../components/SearchBar";
-import { ChevronLeft } from "lucide-react-native";
-import { WebView } from 'react-native-webview';
+import { ChevronLeft, Search, MessageSquare, User, Zap } from "lucide-react-native";
+import { BASE_URL } from "../../baseUrl";
+import Toast from "react-native-toast-message";
+import { LinearGradient } from "expo-linear-gradient";
+import { getImageUrl } from "../../utils/imageUrl"; 
 
 export default function ChatList() {
   const router = useRouter();
@@ -29,76 +31,60 @@ export default function ChatList() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const BASE_URL = 'http://192.168.100.191:5000'
 
-  // Load userId from AsyncStorage
   useEffect(() => {
     const fetchUserId = async () => {
       try {
         const storedId = await AsyncStorage.getItem("userId");
         if (storedId) setUserId(Number(storedId));
-        else console.error("No user ID found in storage");
       } catch (err) {
-        console.error("Error getting userId from AsyncStorage", err);
+        console.error("Error getting userId", err);
       }
     };
     fetchUserId();
   }, []);
 
-  // Fetch chats when userId is available
-  useEffect(() => {
+  // Define fetch function
+  const fetchChats = async () => {
     if (!userId) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/chats/user/${userId}`);
+      if (!res.ok) throw new Error("Failed to fetch chats");
+      const data = await res.json();
+      setChats(data);
+      setFilteredChats(data);
+    } catch (err) {
+      console.error("Error fetching chats:", err);
+    }
+  };
 
-    const fetchChats = async () => {
-      try {
-        const res = await fetch(
-          `${BASE_URL}/api/chats/user/${userId}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch chats");
-        const data = await res.json();
-        setChats(data);
-        setFilteredChats(data);
-      } catch (err) {
-        console.error("Error fetching chats:", err);
-      }
-    };
+  // 1. FIX: Use useFocusEffect to refresh list whenever screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchChats();
+    }, [userId])
+  );
 
-    fetchChats();
+  // 2. Keep interval for background updates while on screen
+  useEffect(() => {
     const interval = setInterval(fetchChats, 10000);
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Search users by username
-  interface User {
-    id: number;
-    username: string;
-    image?: string;
-    email?: string;
-  }
-
-  interface Chat {
-    id: number;
-    type: string;
-    displayName: string;
-    displayImage?: string;
-    lastMessage?: string;
-  }
-
-  const searchUsers = async (text: string): Promise<void> => {
+  const searchUsers = async (text: string) => {
     setQuery(text);
-
     if (!text.trim()) {
       setSearchResults([]);
       setFilteredChats(chats);
       return;
     }
-
     try {
-      const res = await fetch(
-        `${BASE_URL}/api/chats/search/users?q=${encodeURIComponent(
-          text
-        )}`
-      );
+      const token = await AsyncStorage.getItem("token");
+      // Ensure we send auth header if backend requires it for search
+      const res = await fetch(`${BASE_URL}/api/chats/search/users?q=${encodeURIComponent(text)}`, {
+         headers: { Authorization: `Bearer ${token}` } 
+      });
+      
       if (!res.ok) throw new Error("Failed to search users");
       const data = await res.json();
       setSearchResults(data);
@@ -107,20 +93,7 @@ export default function ChatList() {
     }
   };
 
-  // Start a direct chat and navigate to ChatRoom
-  interface ChatResponse {
-    id: number;
-    error?: string;
-    displayName?: string;
-    displayImage?: string;
-  }
-
-  interface ChatRequestBody {
-    type: 'direct';
-    participants: number[];
-  }
-
-  const startChat = async (otherUserId: number): Promise<void> => {
+  const startChat = async (otherUserId: number) => {
     setLoading(true);
     try {
       const res = await fetch(`${BASE_URL}/api/chats`, {
@@ -129,160 +102,174 @@ export default function ChatList() {
         body: JSON.stringify({
           type: "direct",
           participants: [Number(userId), Number(otherUserId)],
-        } as ChatRequestBody),
+        }),
       });
 
-      const chat: ChatResponse = await res.json();
+      const chat = await res.json();
       if (chat.error) {
-        Alert.alert("Error", chat.error);
+        Toast.show({ type: 'error', text1: chat.error });
         return;
       }
 
       await AsyncStorage.setItem("activeChat", JSON.stringify(chat));
 
-      // Navigate to ChatRoom with chatId and the rest 
+      // Navigate immediately with the data we received
       router.push({
         pathname: "/chat/ChatRoom",
         params: {
           chatId: chat.id,
-          displayName: chat.displayName || "New chat",
-          displayImage: `${BASE_URL}${chat.displayImage}` || null
+          displayName: chat.displayName || "Unknown User", // Fallback
+          displayImage: chat.displayImage ? `${BASE_URL}${chat.displayImage}` : ""
         },
       });
+      setQuery(""); 
     } catch (err) {
-      console.error("Error starting chat:", err);
-      Alert.alert("Error", "Something went wrong while starting the chat");
+      Toast.show({ type: 'error', text1: "Error starting chat." });
     } finally {
       setLoading(false);
     }
   };
 
-  // Render existing chat
-  const renderChatItem = ({ item }: { item: Chat }) => {
+  // --- Render Items ---
+
+  const renderChatItem = ({ item }: { item: any }) => {
     const isAI = item.type === "ai";
-    const profilePic = getImageUrl(item.displayImage, isAI ? 'bot' : 'user');
+    const profilePic = getImageUrl(item.displayImage, isAI ? 'bot' : 'user'); 
 
     return (
-      <Pressable
-        className="flex-row items-center px-4 py-3 border-y border-neutral-700"
+      <TouchableOpacity
+        className="flex-row items-center p-4 mb-3 bg-neutral-900/60 border border-white/5 rounded-2xl"
+        activeOpacity={0.7}
         onPress={() => {
           router.push({
             pathname: "/chat/ChatRoom",
-            params: { chatId: item.id,
-                      displayName:item.displayName,
-                      displayImage:`${BASE_URL}${item.displayImage}`
-                },
+            params: {
+              chatId: item.id,
+              displayName: item.displayName,
+              displayImage: item.displayImage ? `${BASE_URL}${item.displayImage}` : ""
+            },
           });
         }}
       >
-        <Image
-          source={{ uri: profilePic }}
-          className="w-12 h-12 rounded-full mr-4"
-        />
-        <View className="flex-1">
-          <Text className="text-white font-semibold text-base">
-            {item.displayName}
-          </Text>
-          <Text className="text-gray-400 text-sm mt-1">
-            {isAI ? "Your productivity assistant" : item.lastMessage || "Tap to chat"}
+        <View className="relative">
+          <Image
+            source={{ uri: profilePic }}
+            className="w-12 h-12 rounded-full bg-neutral-800"
+          />
+          <View className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
+        </View>
+
+        <View className="flex-1 ml-4 justify-center">
+          <View className="flex-row justify-between items-center">
+            <Text className="text-white font-bold text-base tracking-wide">
+              {item.displayName}
+            </Text>
+            {isAI && (
+               <View className="bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+                  <Text className="text-purple-400 text-[10px] font-bold">BOT</Text>
+               </View>
+            )}
+          </View>
+          <Text numberOfLines={1} className="text-neutral-500 text-xs mt-1">
+            {isAI ? "Your productivity assistant" : item.lastMessage || "Start the conversation..."}
           </Text>
         </View>
-      </Pressable>
+      </TouchableOpacity>
     );
   };
 
-  // Render search result user
-  const renderUserItem = ({ item }: { item: User }) => (
-    <Pressable
-      className="flex-row items-center px-4 py-3 border-b border-neutral-700"
+  const renderUserItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      className="flex-row items-center p-4 mb-3 bg-neutral-900/40 border border-dashed border-white/10 rounded-2xl"
       onPress={() => startChat(item.id)}
     >
-      <Image
-        source={{
-          uri:
-            item.image ||
-            "https://img.icons8.com/ios-filled/100/user-male-circle.png",
-        }}
-        className="w-12 h-12 rounded-full mr-4"
-      />
-      <Text className="text-white font-semibold text-base">{item.username}</Text>
-    </Pressable>
+      <View className="w-12 h-12 rounded-full bg-neutral-800 items-center justify-center mr-4 border border-white/10">
+          {item.image ? (
+              <Image source={{ uri: item.image }} className="w-full h-full rounded-full" />
+          ) : (
+              <User size={20} color="#666" />
+          )}
+      </View>
+      <View>
+        <Text className="text-white font-bold text-base">{item.username}</Text>
+        <Text className="text-neutral-500 text-xs">Tap to message</Text>
+      </View>
+      <View className="ml-auto bg-white/5 p-2 rounded-full">
+          <Zap size={16} color="#fbbf24" />
+      </View>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView className="flex-1 pt-12 bg-primary">
-      {/* Back button */}
-      <TouchableOpacity className="ml-5 mb-1" onPress={() => router.back()}>
-        <ChevronLeft size={24} color="white" />
-      </TouchableOpacity>
+    <View className="flex-1 bg-black">
+      <StatusBar barStyle="light-content" />
+      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
 
-      {/* Search bar */}
-      <SearchBar query={query} setQuery={searchUsers} />
+      <SafeAreaView className="flex-1 px-5 pt-4">
+        <View className="flex-row items-center mb-6">
+          <TouchableOpacity 
+            onPress={() => router.back()} 
+            className="w-10 h-10 items-center justify-center bg-white/5 rounded-full border border-white/10 mr-4"
+          >
+            <ChevronLeft size={24} color="white" />
+          </TouchableOpacity>
+          <View>
+              <Text className="text-3xl font-bold text-white">Messages</Text>
+              <Text className="text-neutral-500 text-xs uppercase tracking-widest">Find friends</Text>
+          </View>
+        </View>
 
-      <Text className="font-bold text-3xl text-white mx-3 my-4">All chats</Text>
+        <View className="mb-6">
+          <View className="flex-row items-center bg-neutral-900/80 border border-white/10 rounded-2xl px-4 py-3">
+              <Search size={20} color="#666" />
+              <TextInput
+                  value={query}
+                  onChangeText={searchUsers}
+                  placeholder="Search operatives..."
+                  placeholderTextColor="#666"
+                  className="flex-1 ml-3 text-white text-base"
+              />
+          </View>
+        </View>
 
-      {/* Chat list or search results */}
-      {query.trim() && searchResults.length > 0 ? (
-        <FlatList
-          data={searchResults}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderUserItem}
-        />
-      ) : filteredChats.length > 0 ? (
-        <FlatList
-          data={filteredChats}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderChatItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
-        />
-      ) : (
-        <View className="flex-1 justify-center items-center px-12">
-          <WebView scalesPageToFit={false}
-          originWhitelist={['*']}
-          domStorageEnabled={true}
-          source={icons.book}
+        {query.trim() && searchResults.length > 0 ? (
+          <View className="flex-1">
+              <Text className="text-white/50 text-xs font-bold mb-3 uppercase">Search Results</Text>
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={renderUserItem}
+                showsVerticalScrollIndicator={false}
+              />
+          </View>
+        ) : filteredChats.length > 0 ? (
+          <FlatList
+            data={filteredChats}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderChatItem}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
           />
-          <Text className="text-gray-400 font-bold text-center mt-4">
-            No chats available. Search for users using their username or email
-            to start a new chat!
-          </Text>
-        </View>
-      )}
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View className="flex-1 justify-center items-center opacity-50 pb-20">
+              <View className="w-20 h-20 bg-neutral-900 rounded-full items-center justify-center border border-white/5 mb-4">
+                 <MessageSquare size={32} color="#333" />
+              </View>
+              <Text className="text-neutral-500 font-medium text-center max-w-[250px]">
+                 NO current chats. Search for users to start texting
+              </Text>
+            </View>
+          </TouchableWithoutFeedback>
+        )}
 
-      {/* Loading overlay */}
-      {loading && (
-        <View className="flex-1 bg-primary">
-  {/* Header */}
-  <View className="pt-4 px-5">
-    <TouchableOpacity onPress={() => router.back()} className="self-start">
-      <ChevronLeft size={24} color="white" />
-    </TouchableOpacity>
-  </View>
-
-  {/* Chat list skeleton */}
-  <View className="flex-1 px-4 mt-6">
-    {[1, 2, 3, 4, 5].map((item) => (
-      <View key={item} className="flex-row items-center p-3 border-y border-gray-700">
-        <View className="w-12 h-12 bg-gray-600 rounded-full mr-3"></View>
-        <View className="flex-1">
-          <View className="h-4 bg-gray-600 rounded-full mb-2 w-3/4"></View>
-          <View className="h-3 bg-gray-600 rounded-full w-1/2"></View>
-        </View>
-        <View className="items-end">
-          <View className="h-3 bg-gray-600 rounded-full w-10 mb-1"></View>
-          <View className="w-5 h-5 bg-blue-500 rounded-full"></View>
-        </View>
-      </View>
-    ))}
-  </View>
-
-  {/* Loading indicator */}
-  <View className="items-center py-4">
-    <ActivityIndicator size="small" color="#fff" />
-    <Text className="text-white mt-2 text-sm">Loading messages...</Text>
-  </View>
-</View>
-      )}
-    </SafeAreaView>
+        {loading && (
+          <View className="absolute inset-0 bg-black/80 flex justify-center items-center z-50">
+              <ActivityIndicator size="large" color="#DD2476" />
+              <Text className="text-white mt-4 font-bold tracking-widest text-xs">Loading...</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
