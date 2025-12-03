@@ -1,20 +1,28 @@
 import express, { Request, Response } from 'express';
 import { User, Chat, Message, IChat, IUser } from '../models/Schemas';
 import auth from '../middleware/auth';
+import mongoose from 'mongoose';
 
 const router = express.Router();
+
+// Helper interface for a populated chat
+interface PopulatedChat extends Omit<IChat, 'participants'> {
+  participants: IUser[];
+  _id: mongoose.Types.ObjectId;
+}
 
 // Get User Chats
 router.get('/chats/user/:userId', async (req: Request, res: Response) => {
   try {
+    // Use lean() to get plain JS objects, easier to cast
     const chats = await Chat.find({ participants: req.params.userId })
-      .populate<{ participants: IUser[] }>('participants', 'username image')
-      .sort({ lastMessageTime: -1 });
+      .populate('participants', 'username image')
+      .sort({ lastMessageTime: -1 })
+      .lean();
       
-    const formatted = chats.map(c => {
-      const participantList = c.participants as unknown as IUser[];
+    const formatted = (chats as unknown as PopulatedChat[]).map(c => {
       // Find the OTHER user
-      const otherUser = participantList.find((p) => p._id.toString() !== req.params.userId);
+      const otherUser = c.participants.find((p) => p._id.toString() !== req.params.userId);
       
       return {
         id: c._id,
@@ -40,9 +48,12 @@ router.get('/chats/search/users', auth, async (req: Request, res: Response) => {
       return;
   }
   
+  // Access user id safely
+  const currentUserId = (req as any).user.id;
+
   const users = await User.find({
     username: { $regex: query, $options: 'i' },
-    _id: { $ne: req.user.id } 
+    _id: { $ne: currentUserId } 
   }).limit(20).select('id username image email');
   
   res.json(users);
@@ -52,19 +63,18 @@ router.get('/chats/search/users', auth, async (req: Request, res: Response) => {
 router.post('/chats', async (req: Request, res: Response) => {
   const { participants, type, name, image } = req.body;
   
-  // Ensure we know who the "current user" is. 
-  // participants[0] is usually the creator in your frontend logic, but let's be safe.
+  // Assuming the first participant is the creator/current user
   const currentUserId = participants[0]; 
 
   if (type === 'direct') {
     const existing = await Chat.findOne({
       type: 'direct',
       participants: { $all: participants, $size: 2 }
-    }).populate<{ participants: IUser[] }>('participants');
+    }).populate('participants');
     
     if (existing) {
-       const participantList = existing.participants as unknown as IUser[];
-       const otherUser = participantList.find((p) => p._id.toString() !== currentUserId.toString());
+       const existingPopulated = existing as unknown as PopulatedChat;
+       const otherUser = existingPopulated.participants.find((p) => p._id.toString() !== currentUserId.toString());
        
        res.json({
          id: existing._id,
@@ -75,7 +85,7 @@ router.post('/chats', async (req: Request, res: Response) => {
     }
   }
 
-  let newChat = await Chat.create({ 
+  const newChatDoc = await Chat.create({ 
     participants, 
     type, 
     name, 
@@ -83,15 +93,17 @@ router.post('/chats', async (req: Request, res: Response) => {
     lastMessageTime: new Date() 
   });
   
-  // CRITICAL FIX: Re-fetch and populate to ensure we have full user objects
-  newChat = await newChat.populate<{ participants: IUser[] }>('participants');
+  // Populate the newly created document
+  await newChatDoc.populate('participants');
+  
+  // Cast to our helper interface
+  const newChat = newChatDoc as unknown as PopulatedChat;
   
   let displayName = name;
   let displayImage = image;
 
   if (type === 'direct') {
-    const participantList = newChat.participants as unknown as IUser[];
-    const otherUser = participantList.find((p) => p._id.toString() !== currentUserId.toString());
+    const otherUser = newChat.participants.find((p) => p._id.toString() !== currentUserId.toString());
     
     if (otherUser) {
         displayName = otherUser.username;
@@ -111,7 +123,7 @@ router.get('/chats/:chatId/messages', async (req: Request, res: Response) => {
   try {
     const messages = await Message.find({ chatId: req.params.chatId })
       .sort({ createdAt: 1 })
-      .populate<{ senderId: IUser | null }>('senderId', 'username');
+      .populate('senderId', 'username');
 
     const formatted = messages.map(m => {
         const sender = m.senderId as unknown as IUser | null;

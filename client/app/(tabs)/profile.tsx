@@ -1,4 +1,3 @@
-// app/profile.tsx
 import * as React from "react";
 import { useEffect, useState } from "react";
 import {
@@ -50,6 +49,7 @@ export default function ProfileScreen() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to load user");
         setUser(data.user);
+        setNewUsername(data.user.username);
       } catch (err: any) {
         Toast.show({ type: "error", text1: "Failed to fetch profile" });
       } finally {
@@ -60,7 +60,6 @@ export default function ProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem("token");
     Toast.show({ type: "success", text1: "Logged out successfully" });
     router.replace("/auth/login");
   };
@@ -108,7 +107,7 @@ export default function ProfileScreen() {
     try {
       const token = await AsyncStorage.getItem("token");
       const res = await fetch(`${BASE_URL}/api/profile/update`, {
-        method: "POST",
+        method: "PUT", // Changed to PUT to match backend route
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -129,6 +128,13 @@ export default function ProfileScreen() {
     } catch (err: any) {
       Toast.show({ type: "error", text1: "Update failed", text2: err.message });
     }
+  };
+
+  // Helper to format image URL
+  const getProfileImage = (imagePath: string) => {
+    if (!imagePath) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    if (imagePath.startsWith('http') || imagePath.startsWith('data:')) return imagePath;
+    return `${BASE_URL}${imagePath}`;
   };
 
   if (loading) {
@@ -162,14 +168,8 @@ export default function ProfileScreen() {
           <View className="flex-row items-center">
             <View className="relative">
               <Image
-                source={{
-                  uri: user?.image && user.image.trim()
-                    ? user.image.startsWith("http")
-                      ? user.image
-                      : `${BASE_URL}${user.image}`
-                    : "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                }}
-                className="w-24 h-24 rounded-full border-2 border-neutral-800"
+                source={{ uri: getProfileImage(user?.image) }}
+                className="w-24 h-24 rounded-full border-2 border-neutral-800 bg-neutral-900"
               />
               {/* Glowing ring effect */}
               <View className="absolute inset-0 rounded-full border border-white/20" />
@@ -257,8 +257,8 @@ export default function ProfileScreen() {
               <View className="items-center mb-6">
                 <TouchableOpacity onPress={handlePickImage} className="relative">
                    <Image 
-                      source={{ uri: newImage || (user?.image?.startsWith("http") ? user.image : `${BASE_URL}${user?.image}`) }} 
-                      className="w-24 h-24 rounded-full border-2 border-neutral-700 opacity-80" 
+                      source={{ uri: newImage || getProfileImage(user?.image) }} 
+                      className="w-24 h-24 rounded-full border-2 border-neutral-700 bg-neutral-800" 
                    />
                    <View className="absolute inset-0 items-center justify-center bg-black/30 rounded-full">
                       <Camera color="white" size={24} />

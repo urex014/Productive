@@ -5,23 +5,76 @@ import auth from '../middleware/auth';
 const router = express.Router();
 
 // --- TASKS ---
+
+// GET /tasks - Fetch all tasks
 router.get('/tasks', auth, async (req: Request, res: Response) => {
   const tasks = await Task.find({ userId: req.user.id }).sort({ dueDate: 1 });
   res.json({ tasks });
 });
 
+// POST /tasks - Create Task & Auto-Schedule Reminder
 router.post('/tasks', auth, async (req: Request, res: Response) => {
+  const { title, description, dueDate } = req.body;
+  
+  // 1. Create the Task
   const task = await Task.create({ ...req.body, userId: req.user.id });
+
+  // 2. Logic: If dueDate exists, create a Reminder 1 hour before
+  if (dueDate) {
+    const due = new Date(dueDate);
+    const remindAt = new Date(due.getTime() - 60 * 60 * 1000); // Subtract 1 Hour
+    const now = new Date();
+
+    // Only create reminder if the time is in the future
+    if (remindAt > now) {
+      await Reminder.create({
+        userId: req.user.id,
+        // FIX: Cast task to access _id safely if TS complains, or use task.id if virtual exists
+        taskId: (task as any)._id, 
+        note: `Upcoming: "${title}" is due in 1 hour.`,
+        remindAt: remindAt
+      });
+      console.log(`[Reminder] Scheduled for task "${title}" at ${remindAt.toISOString()}`);
+    }
+  }
+
   res.json(task);
 });
 
+// PUT /tasks/:id - Update Task & Sync Reminder
 router.put('/tasks/:id', auth, async (req: Request, res: Response) => {
   const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  
+  // Sync reminder if due date changed
+  if (req.body.dueDate && task) {
+     const due = new Date(req.body.dueDate);
+     const remindAt = new Date(due.getTime() - 60 * 60 * 1000); // 1 hour before
+     const now = new Date();
+
+     if (remindAt > now) {
+         // Update existing reminder or create new one if missing (upsert logic manually)
+         // FIX: Cast task._id or use req.params.id
+         const existing = await Reminder.findOne({ taskId: (task as any)._id });
+         if (existing) {
+             existing.remindAt = remindAt;
+             await existing.save();
+         } else {
+             await Reminder.create({
+                userId: req.user.id,
+                taskId: (task as any)._id,
+                note: `Upcoming: "${task.title}" is due in 1 hour.`,
+                remindAt: remindAt
+             });
+         }
+     }
+  }
+
   res.json(task);
 });
 
 router.delete('/tasks/:id', auth, async (req: Request, res: Response) => {
   await Task.findByIdAndDelete(req.params.id);
+  // Cleanup: Delete associated reminders when task is deleted
   await Reminder.deleteMany({ taskId: req.params.id });
   res.json({ success: true });
 });

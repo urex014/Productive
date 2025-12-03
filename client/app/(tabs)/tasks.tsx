@@ -1,4 +1,3 @@
-// app/tasks.tsx
 import * as React from "react";
 import { useState, useEffect } from "react";
 import {
@@ -29,81 +28,126 @@ export default function TasksScreen() {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
 
-  // --- Logic Same as before ---
+  // --- Fetch Tasks ---
   const fetchTasks = async () => {
     try {
       const token = await AsyncStorage.getItem("token");
+      console.log(`Fetching tasks from: ${BASE_URL}/api/tasks`);
+      
       const res = await fetch(`${BASE_URL}/api/tasks`, {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
+      
+      if (!res.ok) {
+          console.error("Fetch failed status:", res.status);
+          Toast.show({ type: 'error', text1: `Error: ${res.status}` });
+          return;
+      }
+
       const data = await res.json();
+      console.log("Tasks fetched:", data);
+      
+      // Handle { tasks: [...] } or [...] structure
       setTasks(Array.isArray(data) ? data : data.tasks || []);
     } catch (err) {
+      console.error("Fetch error:", err);
       Toast.show({ type: 'error', text1: 'Failed to fetch tasks' });
     }
   };
 
   useEffect(() => { fetchTasks(); }, []);
 
+  // --- Add Task ---
   const handleAddTask = async () => {
     if (!newTask.trim() || !newDescription.trim() || !newDueDate) {
       Toast.show({ type: 'error', text1: "Missing fields" });
       return;
     }
+    
     const task = { title: newTask, description: newDescription, dueDate: newDueDate.toISOString() };
+    
     try {
       const token = await AsyncStorage.getItem("token");
-      const res = await fetch(BASE_URL, {
+      const res = await fetch(`${BASE_URL}/api/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(task),
       });
+      
+      const data = await res.json();
+
       if (res.ok) {
-        const savedTask = await res.json();
-        setTasks((prev) => [...prev, savedTask]);
+        setTasks((prev) => [...prev, data]); // Append new task
         setNewTask(""); setNewDescription(""); setNewDueDate(null);
         Keyboard.dismiss();
+        Toast.show({ type: 'success', text1: 'Task created!' });
+      } else {
+        console.error("Create error:", data);
+        Toast.show({ type: 'error', text1: 'Failed to create task' });
       }
     } catch (err) { console.error(err); }
   };
 
+  // --- Update Task ---
   const handleUpdateTask = async () => {
     if (!editingTask?.title?.trim()) return;
+    
+    // MongoDB uses _id, ensure we grab the correct one
+    const taskId = editingTask._id || editingTask.id;
+    if (!taskId) {
+        console.error("No Task ID found for update");
+        return;
+    }
+
     try {
       const token = await AsyncStorage.getItem("token");
-      const res = await fetch(`${BASE_URL}/${editingTask.id || editingTask._id}`, {
+      const res = await fetch(`${BASE_URL}/api/tasks/${taskId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title: editingTask.title, description: editingTask.description, dueDate: editingTask.dueDate }),
+        body: JSON.stringify({ 
+            title: editingTask.title, 
+            description: editingTask.description, 
+            dueDate: editingTask.dueDate 
+        }),
       });
+
       if (res.ok) {
-        const result = await res.json();
-        const updatedTask = result.task || result;
-        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id || t._id === updatedTask._id) ? updatedTask : t));
+        const updatedTask = await res.json();
+        setTasks((prev) => prev.map((t) => (t._id === taskId || t.id === taskId ? updatedTask : t)));
         setEditingTask(null); setNewTask(""); setNewDescription(""); setNewDueDate(null);
         Keyboard.dismiss();
+        Toast.show({ type: 'success', text1: 'Task updated!' });
       }
     } catch (err) { console.error(err); }
   };
 
+  // --- Delete Task ---
   const handleDeleteTask = async (id: string) => {
+    console.log("Deleting task:", id);
     try {
       const token = await AsyncStorage.getItem("token");
-      const res = await fetch(`${BASE_URL}/${id}`, {
+      const res = await fetch(`${BASE_URL}/api/tasks/${id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setTasks((prev) => prev.filter((t) => t.id !== id && t._id !== id));
+
+      if (res.ok) {
+          setTasks((prev) => prev.filter((t) => (t._id !== id && t.id !== id)));
+          Toast.show({ type: 'success', text1: 'Task deleted' });
+      } else {
+          console.error("Delete failed status:", res.status);
+      }
     } catch (err) { console.error(err); }
   };
 
+  // --- Delete All Tasks ---
   const handleDeleteAllTasks = async () => {
     Alert.alert("Confirm Purge", "Delete all pending missions?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete All", style: "destructive", onPress: async () => {
           try {
             const token = await AsyncStorage.getItem("token");
-            const res = await fetch(BASE_URL, {
+            const res = await fetch(`${BASE_URL}/api/tasks`, {
               method: "DELETE",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             });
@@ -114,7 +158,6 @@ export default function TasksScreen() {
   };
 
   // --- Render Header with Glass Form ---
-  // We keep this function to organize code, but we will call it differently in FlatList
   const renderHeader = () => (
     <View>
       <View className="mb-5 pt-8">
@@ -211,7 +254,6 @@ export default function TasksScreen() {
       <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
 
       <SafeAreaView className="flex-1">
-        {/* Use behavior padding for iOS, height for Android usually works best with Expo */}
         <KeyboardAvoidingView 
             behavior={Platform.OS === "ios" ? "padding" : undefined} 
             className="flex-1"
@@ -220,22 +262,21 @@ export default function TasksScreen() {
           <View className="flex-1 px-5">
             <FlatList
               data={tasks}
-              keyExtractor={(item, i) => item.id?.toString() || item._id?.toString() || i.toString()}
+              // Support both MongoDB _id and SQLite id
+              keyExtractor={(item, i) => item._id?.toString() || item.id?.toString() || i.toString()}
               
-              // FIX IS HERE: Call the function renderHeader() so we pass JSX, not a function reference
               ListHeaderComponent={renderHeader()} 
               
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 100 }}
               
-              
               keyboardShouldPersistTaps="handled" 
 
               ListEmptyComponent={
                 <View className="items-center justify-center mt-12 opacity-50">
-                   <CheckCircle color="#333" size={60} />
-                   <Text className="text-white text-lg font-bold mt-3">All systems nominal.</Text>
-                   <Text className="text-neutral-600 text-sm">No active tasks.</Text>
+                    <CheckCircle color="#333" size={60} />
+                    <Text className="text-white text-lg font-bold mt-3">All systems nominal.</Text>
+                    <Text className="text-neutral-600 text-sm">No active tasks.</Text>
                 </View>
               }
               renderItem={({ item }) => (
@@ -253,14 +294,19 @@ export default function TasksScreen() {
 
                   <View className="flex-col gap-2 pl-3 border-l border-white/5">
                     <TouchableOpacity
-                      onPress={handleAddTask}
+                      onPress={() => {
+                        setEditingTask(item); 
+                        setNewTask(item.title); 
+                        setNewDescription(item.description); 
+                        setNewDueDate(new Date(item.dueDate));
+                      }}
                       className="p-2 rounded-lg bg-white/5"
                     >
                       <Edit color="#4facfe" size={18} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => handleDeleteTask(item.id || item._id)}
+                      onPress={() => handleDeleteTask(item._id || item.id)}
                       className="p-2 rounded-lg bg-red-900/20"
                     >
                       <Trash2 color="#ef4444" size={18} />

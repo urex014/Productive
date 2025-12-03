@@ -62,6 +62,15 @@ export interface IMessage extends Document {
   readBy: mongoose.Types.ObjectId[];
   createdAt: Date;
 }
+export interface INote extends Document {
+  userId: mongoose.Types.ObjectId;
+  title: string;
+  filePath: string;
+  fileType: string;
+  originalName: string;
+  summary?: string;
+  createdAt: Date;
+}
 
 // --- Schemas ---
 
@@ -133,6 +142,17 @@ const messageSchema = new Schema<IMessage>({
   readBy: [{ type: Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true, toJSON: toJSONConfig });
 
+const noteSchema = new Schema<INote>({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true },
+  filePath: { type: String, required: true },
+  fileType: { type: String, required: true },
+  originalName: { type: String },
+  summary: { type: String }
+}, { timestamps: true, toJSON: toJSONConfig });
+
+
+
 // --- Models ---
 
 export const User = model<IUser>('User', userSchema);
@@ -142,3 +162,4 @@ export const Journal = model<IJournal>('Journal', journalSchema);
 export const Timetable = model<ITimetable>('Timetable', timetableSchema);
 export const Chat = model<IChat>('Chat', chatSchema);
 export const Message = model<IMessage>('Message', messageSchema);
+export const Note = model<INote>('Note', noteSchema);

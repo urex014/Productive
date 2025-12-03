@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  ActivityIndicator,
   Animated,
   ScrollView,
   TouchableWithoutFeedback,
@@ -21,7 +20,6 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotificationsAsync } from "../../hooks/usePushNotifications";
 import Toast from "react-native-toast-message";
-import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function RegisterScreen() {
@@ -43,7 +41,7 @@ export default function RegisterScreen() {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.5,
+            toValue: 1.02,
             duration: 800,
             useNativeDriver: true,
           }),
@@ -106,7 +104,7 @@ export default function RegisterScreen() {
             }
         });
       }
-      Toast.show({ type: 'success', text1: "Welcome aboard!" });
+      Toast.show({ type: 'success', text1: "Account created" });
       router.replace("/");
     } catch (err) {
       Toast.show({ type: 'error', text1: "Network error" });
@@ -116,9 +114,8 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View className="flex-1 bg-black">
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
+    <View className="flex-1 bg-[#000000]">
+      <StatusBar barStyle="light-content" backgroundColor="#050505" />
 
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView 
@@ -132,121 +129,105 @@ export default function RegisterScreen() {
             >
               
               {/* Header */}
-              <View className="items-center mb-10">
-                <Text className="text-white text-4xl font-bold tracking-tighter">Create Account</Text>
-                <Text className="text-neutral-500 text-sm mt-2 uppercase tracking-widest">Join the productivity grid</Text>
+              <View className="items-start mb-10">
+                <Text className="text-white text-3xl font-bold tracking-tight">Create Account</Text>
+                <Text className="text-neutral-500 text-sm mt-1">Start your journey</Text>
               </View>
 
-              {/* Form Container (Glass Card) */}
-              <View className="bg-neutral-900/50 border border-white/10 rounded-3xl p-6 mb-6">
+              {/* Inputs */}
+              <View className="mb-8 space-y-4">
                 
-                {/* Username Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
-                  <Feather name="user" size={20} color="#666" />
+                {/* Username */}
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12">
+                  <Feather name="user" size={18} color="#555" />
                   <TextInput
                     value={username}
                     onChangeText={setUsername}
                     placeholder="Username"
-                    placeholderTextColor="#666"
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    placeholderTextColor="#555"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                 </View>
 
-                {/* Email Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
-                  <Feather name="mail" size={20} color="#666" />
+                {/* Email */}
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12 mt-4">
+                  <Feather name="mail" size={18} color="#555" />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="Email Address"
-                    placeholderTextColor="#666"
+                    placeholder="Email"
+                    placeholderTextColor="#555"
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                 </View>
 
-                {/* Password Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-4">
-                  <Feather name="lock" size={20} color="#666" />
+                {/* Password */}
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12 mt-4">
+                  <Feather name="lock" size={18} color="#555" />
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Password"
-                    placeholderTextColor="#666"
+                    placeholderTextColor="#555"
                     secureTextEntry={!showPassword}
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#666" />
+                    <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#555" />
                   </TouchableOpacity>
                 </View>
 
-                {/* Confirm Password Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-3.5 mb-6">
-                  <Feather name="check-circle" size={20} color="#666" />
+                {/* Confirm Password */}
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12 mt-4">
+                  <Feather name="check-circle" size={18} color="#555" />
                   <TextInput
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     placeholder="Confirm Password"
-                    placeholderTextColor="#666"
+                    placeholderTextColor="#555"
                     secureTextEntry={!showConfirmPassword}
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                   <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color="#666" />
+                    <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={18} color="#555" />
                   </TouchableOpacity>
-                </View>
-
-                {/* Register Button with Pulsing Animation */}
-                <View className="relative items-center justify-center">
-                    {loading && (
-                        <Animated.View
-                            style={{
-                                position: 'absolute',
-                                top: -4, bottom: -4, left: -4, right: -4,
-                                borderRadius: 20,
-                                borderWidth: 2,
-                                borderColor: '#8b5cf6', // Violet-500 (pulsing color)
-                                opacity: pulseAnim.interpolate({
-                                    inputRange: [1, 1.5],
-                                    outputRange: [1, 0]
-                                }),
-                                transform: [{ scale: pulseAnim }]
-                            }}
-                        />
-                    )}
-
-                    <TouchableOpacity
-                        onPress={handleRegister}
-                        disabled={loading}
-                        className={`w-full py-4 rounded-2xl flex-row justify-center items-center ${loading ? 'bg-violet-900' : 'bg-violet-600'}`}
-                        style={{
-                            shadowColor: "#8b5cf6",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 10,
-                        }}
-                    >
-                        {loading ? (
-                            <Text className="text-violet-200 font-bold text-lg tracking-wide uppercase">
-                                Processing...
-                            </Text>
-                        ) : (
-                            <Text className="text-white font-bold text-lg tracking-wide uppercase">
-                                Sign Up
-                            </Text>
-                        )}
-                    </TouchableOpacity>
                 </View>
 
               </View>
 
+              {/* Register Button */}
+              <View className="items-center justify-center">
+                  <Animated.View
+                      style={{
+                          width: '100%',
+                          transform: [{ scale: pulseAnim }]
+                      }}
+                  >
+                    <TouchableOpacity
+                        onPress={handleRegister}
+                        disabled={loading}
+                        className={`w-full h-12 rounded-xl flex-row justify-center items-center ${loading ? 'bg-[#333]' : 'bg-white'}`}
+                    >
+                        {loading ? (
+                            <Text className="text-gray-400 font-semibold text-sm">
+                                Creating...
+                            </Text>
+                        ) : (
+                            <Text className="text-black font-bold text-sm">
+                                Sign Up
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                  </Animated.View>
+              </View>
+
               {/* Bottom Links */}
-              <View className="flex-row justify-center items-center mt-4 pb-10">
-                <Text className="text-neutral-500">Already have an account? </Text>
+              <View className="flex-row justify-center items-center mt-8 pb-10">
+                <Text className="text-neutral-600 text-xs">Already have an account? </Text>
                 <TouchableOpacity onPress={() => router.push("/auth/login")}>
-                  <Text className="text-white font-bold ml-1">Log In</Text>
+                  <Text className="text-white font-bold text-xs ml-1">Log In</Text>
                 </TouchableOpacity>
               </View>
 

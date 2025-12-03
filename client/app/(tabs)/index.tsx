@@ -1,4 +1,3 @@
-// app/dashboard.tsx
 import * as React from "react";
 import { useState, useEffect } from "react";
 import {
@@ -8,6 +7,7 @@ import {
   ScrollView,
   Image,
   StatusBar,
+  ActivityIndicator
 } from "react-native";
 import {
   Flame,
@@ -16,12 +16,13 @@ import {
   Target,
   Bell,
   User,
-  ChevronRight
+  ChevronRight,
+  Notebook
 } from "lucide-react-native";
 import PulsingDots from "../../components/PulsingDots";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Toast from "react-native-toast-message";
+// import Toast from "react-native-toast-message";
 import { BASE_URL } from "../../baseUrl";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,48 +32,112 @@ export default function DashboardScreen() {
   const [reminders, setReminders] = useState<any[]>([]);
   const [streak, setStreak] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  function getTimeOfDay():string{
+    const hour = new Date().getHours();
+    if(hour < 12) return `Morning ${user?.username || "User"}☀️`;
+    if(hour < 18) return `Afternoon ${user?.username || "User"}🌤️` ;
+    return `Evening ${user?.username || "User"}🌙`;
+  }
+  const time = getTimeOfDay();
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         const token = await AsyncStorage.getItem("token");
+        if (!token) {
+            setLoading(false);
+            return;
+        }
 
-        const remRes = await fetch(`${BASE_URL}/api/reminders`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const remData = await remRes.json();
-        setReminders(Array.isArray(remData) ? remData : remData.reminders || []);
+        // 1. Fetch Reminders
+        try {
+            const remRes = await fetch(`${BASE_URL}/api/reminders`, {
+            headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            if (remRes.ok) {
+                const remData = await remRes.json();
+                const rawReminders = Array.isArray(remData) ? remData : remData.reminders || [];
+                setReminders(rawReminders);
+            }
+        } catch(e) {
+            console.error("Reminders fetch failed", e);
+        }
 
-        const streakRes = await fetch(`${BASE_URL}/api/streaks`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const streakData = await streakRes.json();
-        setStreak(streakData.currentStreak || 0);
+        // 2. Fetch Streak
+        try {
+            const streakRes = await fetch(`${BASE_URL}/api/streaks`, {
+            headers: { Authorization: `Bearer ${token}` },
+            });
+            if (streakRes.ok) {
+                const streakData = await streakRes.json();
+                setStreak(streakData.currentStreak || 0);
+            }
+        } catch(e) {
+            console.error("Streak fetch failed", e);
+        }
 
-        const profileRes = await fetch(`${BASE_URL}/api/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const profileData = await profileRes.json();
-        setUser(profileData.user);
+        // 3. Fetch Profile - Critical for Header
+        try {
+            const profileRes = await fetch(`${BASE_URL}/api/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+            });
+            if (profileRes.ok) {
+                const profileData = await profileRes.json();
+                // Ensure we are setting the user object correctly
+                // If backend returns { user: { ... } }, we set profileData.user
+                setUser(profileData.user || profileData);
+            } else {
+                console.error("Profile fetch failed status:", profileRes.status);
+            }
+        } catch(e) {
+            console.error("Profile fetch failed", e);
+        }
+
       } catch (err: any) {
-        Toast.show({ type: "error", text1: "Connection Error" });
+        console.error("Dashboard global error:", err);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchAll();
-    const interval = setInterval(fetchAll, 10000);
+    const interval = setInterval(fetchAll, 15000);
     return () => clearInterval(interval);
   }, []);
 
+  // Sort reminders by date
   const upcomingItems = reminders
-    .map((r) => ({ ...r, type: "reminder" }))
-    .sort((a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime());
+    .map((r) => ({ 
+        ...r, 
+        id: r._id || r.id, 
+        type: "reminder",
+        remindAt: r.remindAt || r.dueDate 
+    }))
+    .sort((a, b) => new Date(a.remindAt).getTime() - new Date(b.remindAt).getTime())
+    .slice(0, 5); 
+
+  if (loading && !user) {
+      return (
+        <View className="flex-1 bg-black justify-center items-center">
+            <ActivityIndicator size="large" color="#DD2476" />
+        </View>
+      );
+  }
+
+  // Helper to handle profile image URL
+  const getProfileImage = (img: string) => {
+      if (!img) return { uri: '' };
+      if (img.startsWith('http') || img.startsWith('data:')) return { uri: img };
+      return { uri: `${BASE_URL}${img}` };
+  };
 
   return (
     <View className="flex-1 bg-black">
       <StatusBar barStyle="light-content" />
       
-      {/* "Void" Background: Pure Black to Very Dark Gray */}
       <LinearGradient
         colors={['#000000', '#050505', '#121212']}
         className="absolute inset-0"
@@ -90,9 +155,11 @@ export default function DashboardScreen() {
               <Text className="text-neutral-500 text-xs font-bold tracking-[0.2em] uppercase">
                 Dashboard
               </Text>
-              <Text className="text-3xl font-bold text-white mt-1">
-                Hello, {user?.username || "Guest"}
+              <View className="w-[90%]">
+              <Text numberOfLines={1} className="text-3xl font-bold text-white mt-1">
+                {time} 
               </Text>
+              </View>
             </View>
 
             <TouchableOpacity
@@ -101,7 +168,7 @@ export default function DashboardScreen() {
             >
               {user?.image ? (
                 <Image
-                  source={{ uri: `${BASE_URL}${user.image}` }}
+                  source={getProfileImage(user.image)}
                   className="w-full h-full rounded-full"
                 />
               ) : (
@@ -114,13 +181,11 @@ export default function DashboardScreen() {
 
           {/* Hero Card: Streak (Darker Base) */}
           <View className="rounded-3xl overflow-hidden mb-8 border border-white/5 bg-neutral-900/30 relative">
-            {/* Very subtle color tint, mostly black */}
             <LinearGradient
               colors={['rgba(0,0,0,0.8)', 'rgba(0,0,0,0.4)']}
               className="absolute inset-0"
             />
             
-            {/* Top Glowing Edge */}
             <LinearGradient
               colors={['#FF512F', '#DD2476', 'transparent']}
               start={{x: 0, y: 0}} end={{x: 1, y: 0}}
@@ -153,12 +218,11 @@ export default function DashboardScreen() {
           <Text className="text-white/90 text-lg font-bold mb-4 mt-2">Modules</Text>
           <View className="flex-row justify-between mb-8">
             <QuickActionCard 
-              icon={<MessageCircle color="#3b82f6" size={26} />} // Blue-500
-              label="Chat"
-              // Dark gradient
+              icon={<Notebook color="#3b82f6" size={26} />} // Blue-500
+              label="Notes"
               gradient={['rgba(59, 130, 246, 0.15)', 'transparent']}
               borderColor="border-blue-900/30"
-              onPress={() => router.push("/chat/list")}
+              onPress={() => router.push("/notes")}
             />
             <QuickActionCard 
               icon={<Target color="#22c55e" size={26} />} // Green-500
@@ -179,16 +243,16 @@ export default function DashboardScreen() {
           {/* Upcoming Reminders (Dark Cards) */}
           <View className="flex-row justify-between items-end mb-4">
             <Text className="text-white/90 text-lg font-bold">Upcoming</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/tasks")}>
               <Text className="text-neutral-600 text-xs">View All</Text>
             </TouchableOpacity>
           </View>
 
           {upcomingItems.length > 0 ? (
             upcomingItems.map((item) => (
-              <View 
+              <View
+              
                 key={item.id} 
-                // Using neutral-900 for the card background
                 className="flex-row items-center justify-between bg-neutral-900/60 rounded-2xl p-4 mb-3 border border-white/5"
               >
                 <View className="flex-row items-center flex-1">
@@ -197,14 +261,18 @@ export default function DashboardScreen() {
                   </View>
                   <View className="flex-1">
                     <Text className="text-neutral-200 font-semibold text-base mb-1" numberOfLines={1}>
-                      {item.note}
+                      {item.note || item.title}
                     </Text>
                     <Text className="text-neutral-600 text-xs">
-                      {new Date(item.remindAt).toLocaleString()}
+                      {new Date(item.remindAt).toLocaleString([], { 
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                      })}
                     </Text>
                   </View>
                 </View>
+                <TouchableOpacity onPress={() => router.push("/tasks")}>
                 <ChevronRight color="#333" size={20} />
+                </TouchableOpacity>
               </View>
             ))
           ) : (
@@ -220,11 +288,9 @@ export default function DashboardScreen() {
   );
 }
 
-// Helper for Grid Buttons (Updated for Dark Theme)
 const QuickActionCard = ({ icon, label, onPress, gradient, borderColor }: any) => (
   <TouchableOpacity
     onPress={onPress}
-    // Using bg-neutral-950 for a very dark card base
     className={`w-[30%] aspect-square rounded-2xl items-center justify-center overflow-hidden border bg-neutral-950 ${borderColor || 'border-neutral-800'}`}
   >
     <LinearGradient

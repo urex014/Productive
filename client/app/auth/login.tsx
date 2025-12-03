@@ -1,5 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
-// app/auth/login.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   Text,
@@ -12,16 +10,17 @@ import {
   StatusBar,
   ScrollView,
   TouchableWithoutFeedback,
-  Keyboard
+  Keyboard,
+  Alert
 } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerForPushNotificationsAsync } from "../../hooks/usePushNotifications";
 import { BASE_URL } from "../../baseUrl";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { Feather, MaterialIcons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+import * as LocalAuthentication from 'expo-local-authentication'; // Import this
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -29,31 +28,61 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  
   const [showPassword, setShowPassword] = useState(false);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Check for Biometric Support on Mount
+  useEffect(() => {
+    (async () => {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setIsBiometricSupported(compatible && enrolled);
+    })();
+  }, []);
+
+  // Pulsing Animation
   useEffect(() => {
     if (loading) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.5,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.02, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
         ])
       ).start();
     } else {
       pulseAnim.setValue(1);
     }
   }, [loading]);
+
+  // Handle Biometric Login
+  const handleBiometricLogin = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to access your dashboard',
+        fallbackLabel: 'Use Passcode',
+      });
+
+      if (result.success) {
+        // LOGIC: You usually need a token saved from a previous successful login to auto-login.
+        // For this example, we will check if a token exists in storage.
+        const storedToken = await AsyncStorage.getItem("token");
+        const storedUser = await AsyncStorage.getItem("user");
+
+        if (storedToken && storedUser) {
+           Toast.show({ type: 'success', text1: "Biometric verified!" });
+           router.replace("/");
+        } else {
+           Toast.show({ type: 'error', text1: "Please log in with password first to enable biometrics." });
+        }
+      } else {
+        // result.error contains error code (e.g., 'user_cancel')
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -77,6 +106,7 @@ export default function LoginScreen() {
         await AsyncStorage.setItem("userId", String(data.user.id));
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
+        // Register Push Token
         registerForPushNotificationsAsync().then(async (token) => {
             if (token) {
                 try {
@@ -108,9 +138,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <View className="flex-1 bg-black">
-      <StatusBar barStyle="light-content" />
-      <LinearGradient colors={['#000000', '#050505', '#121212']} className="absolute inset-0" />
+    <View className="flex-1 bg-[#050505]">
+      <StatusBar barStyle="light-content" backgroundColor="#050505" />
 
       <SafeAreaView className="flex-1">
         <KeyboardAvoidingView 
@@ -124,100 +153,84 @@ export default function LoginScreen() {
             >
               
               {/* Header */}
-              <View className="items-center mb-12">
-                <Text className="text-white text-4xl font-bold tracking-tighter">Welcome Back</Text>
-                <Text className="text-neutral-500 text-sm mt-2 uppercase tracking-widest">Re-establish Connection</Text>
+              <View className="items-start mb-12">
+                <Text className="text-white text-3xl font-bold tracking-tight">Welcome Back</Text>
+                <Text className="text-neutral-500 text-sm mt-1">Sign in to continue</Text>
               </View>
 
-              {/* Form Container (Glass Card) */}
-              <View className="bg-neutral-900/50 border border-white/10 rounded-3xl p-6 mb-6">
-                
-                {/* Email Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-4 mb-4">
-                  <Feather name="mail" size={20} color="#666" />
+              {/* Inputs */}
+              <View className="mb-8 space-y-4">
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12">
+                  <Feather name="mail" size={18} color="#555" />
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="Email Address"
-                    placeholderTextColor="#666"
+                    placeholder="Email"
+                    placeholderTextColor="#555"
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                 </View>
 
-                {/* Password Input */}
-                <View className="flex-row items-center bg-black border border-neutral-800 rounded-2xl px-4 py-4 mb-6">
-                  <Feather name="lock" size={20} color="#666" />
+                <View className="flex-row items-center bg-[#111] border border-[#222] rounded-xl px-4 h-12 mt-4">
+                  <Feather name="lock" size={18} color="#555" />
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
                     placeholder="Password"
-                    placeholderTextColor="#666"
+                    placeholderTextColor="#555"
                     secureTextEntry={!showPassword}
-                    className="flex-1 ml-3 text-white font-medium text-base"
+                    className="flex-1 ml-3 text-white text-sm font-medium h-full"
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#666" />
+                    <Feather name={showPassword ? "eye" : "eye-off"} size={18} color="#555" />
                   </TouchableOpacity>
                 </View>
-
-                {/* Login Button with Pulsing Border */}
-                <View className="relative items-center justify-center">
-                    {loading && (
-                        <Animated.View
-                            style={{
-                                position: 'absolute',
-                                top: -4, bottom: -4, left: -4, right: -4,
-                                borderRadius: 20,
-                                borderWidth: 2,
-                                borderColor: '#8b5cf6', 
-                                opacity: pulseAnim.interpolate({
-                                    inputRange: [1, 1.5],
-                                    outputRange: [1, 0]
-                                }),
-                                transform: [{ scale: pulseAnim }]
-                            }}
-                        />
-                    )}
-                    
-                    <TouchableOpacity
-                        onPress={handleLogin}
-                        disabled={loading}
-                        className={`w-full py-4 rounded-2xl flex-row justify-center items-center ${loading ? 'bg-violet-900' : 'bg-violet-600'}`}
-                        style={{
-                            shadowColor: "#8b5cf6",
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.3,
-                            shadowRadius: 10,
-                        }}
-                    >
-                        {loading ? (
-                            <Text className="text-violet-200 font-bold text-lg tracking-wide uppercase">
-                                Authenticating...
-                            </Text>
-                        ) : (
-                            <Text className="text-white font-bold text-lg tracking-wide uppercase">
-                                Access System
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
-
               </View>
 
-              {/* Bottom Links */}
-              <View className="items-center mt-4 gap-6 pb-10">
+              {/* Buttons */}
+              <View className="items-center justify-center space-y-4">
+                  {/* Main Login Button */}
+                  <Animated.View
+                      style={{ width: '100%', transform: [{ scale: pulseAnim }] }}
+                  >
+                      <TouchableOpacity
+                          onPress={handleLogin}
+                          disabled={loading}
+                          className={`w-full h-12 rounded-xl flex-row justify-center items-center ${loading ? 'bg-[#333]' : 'bg-white'}`}
+                      >
+                          {loading ? (
+                              <Text className="text-gray-400 font-semibold text-sm">Verifying...</Text>
+                          ) : (
+                              <Text className="text-black font-bold text-sm">Sign In</Text>
+                          )}
+                      </TouchableOpacity>
+                  </Animated.View>
+
+                  {/* Biometric Button (Only shows if supported) */}
+                  {isBiometricSupported && (
+                     <TouchableOpacity 
+                        onPress={handleBiometricLogin}
+                        className="mt-4 p-3 bg-[#111] border border-[#222] rounded-full"
+                     >
+                        <MaterialIcons name="fingerprint" size={32} color="#888" />
+                     </TouchableOpacity>
+                  )}
+              </View>
+
+              {/* Footer Links */}
+              <View className="items-center mt-8 gap-6 pb-10">
+                <TouchableOpacity onPress={() => router.push("/auth/forgot-password")}>
+                    <Text className="text-neutral-600 text-xs">Forgot Password?</Text>
+                </TouchableOpacity>
+
                 <View className="flex-row">
-                    <Text className="text-neutral-500">Don't have an account? </Text>
+                    <Text className="text-neutral-600 text-xs">New user? </Text>
                     <TouchableOpacity onPress={() => router.push("/auth/register")}>
-                    <Text className="text-white font-bold ml-1">Sign Up</Text>
+                        <Text className="text-white font-bold text-xs ml-1">Create account</Text>
                     </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity onPress={() => router.push("/auth/forgot-password")}>
-                    <Text className="text-neutral-600 text-sm underline">Forgot Password?</Text>
-                </TouchableOpacity>
               </View>
 
             </ScrollView>

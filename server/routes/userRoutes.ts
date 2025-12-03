@@ -3,11 +3,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { User, IUser } from '../models/Schemas';
+import { User } from '../models/Schemas';
 import auth from '../middleware/auth';
 
 const router = express.Router();
 
+// ... (Register, Login, Profile, Update Profile routes remain unchanged) ...
 // Register
 router.post('/auth/register', async (req: Request, res: Response) => {
   try {
@@ -138,43 +139,56 @@ router.post('/notifications/register-token', auth, async (req: Request, res: Res
   res.json({ message: "Push token registered" });
 });
 
-// Forgot Password
+// Forgot Password (Corrected)
 router.post('/auth/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) {
-      res.status(400).json({ message: "Email required" });
+      res.status(400).json({ message: "Email is required" });
       return;
   }
-
-  const user = await User.findOne({ email });
-  if (!user) {
-      res.status(200).json({ message: "If email exists, reset link sent." });
-      return;
-  }
-
-  const resetToken = crypto.randomBytes(32).toString("hex");
-  user.reset_token = crypto.createHash("sha256").update(resetToken).digest("hex");
-  user.reset_token_expiry = new Date(Date.now() + 15 * 60 * 1000);
-  await user.save();
-
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-  });
 
   try {
-    await transporter.sendMail({
-      from: `"Amara" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Password Reset",
-      text: `Reset your password here: ${resetUrl}`
+    const user = await User.findOne({ email });
+    
+    // Security: Always return 200 even if user not found to prevent email enumeration
+    if (!user) {
+        res.status(200).json({ message: "If that email is registered, a reset link has been sent." });
+        return;
+    }
+
+    // Generate Reset Token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    
+    user.reset_token = hashedToken;
+    user.reset_token_expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await user.save();
+
+    // Construct Reset URL (Ensure CLIENT_URL is in .env)
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    // Configure Transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail", // Or use SMTP host/port
+      auth: { 
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS 
+      },
     });
-    res.json({ message: "Email sent" });
+
+    // Send Email
+    await transporter.sendMail({
+      from: `"Amara App" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Password Reset Request",
+      text: `You requested a password reset.\n\nPlease click the following link to reset your password:\n\n${resetUrl}\n\nThis link is valid for 15 minutes.\nIf you did not request this, please ignore this email.`,
+      html: `<p>You requested a password reset.</p><p>Click <a href="${resetUrl}">here</a> to reset your password.</p><p>This link is valid for 15 minutes.</p>`
+    });
+
+    res.json({ message: "If that email is registered, a reset link has been sent." });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Email failed" });
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ message: "Unable to send email" });
   }
 });
 

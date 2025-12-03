@@ -1,4 +1,3 @@
-// app/study.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -10,7 +9,7 @@ import {
   Dimensions,
   Platform
 } from "react-native";
-  import { BASE_URL } from "../baseUrl";
+import { BASE_URL } from "../baseUrl";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Flame, Award, Clock, ChevronLeft, Play, Pause, RotateCcw, X, AlertTriangle } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -76,16 +75,11 @@ const DurationPicker = ({ onSetDuration, onClose }: { onSetDuration: (seconds: n
 
       <TouchableOpacity
         onPress={confirm}
-        className="rounded-xl overflow-hidden shadow-lg shadow-blue-500/20"
+        className="rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 bg-blue-600" // Changed to solid bg-blue-600
       >
-        <LinearGradient
-            colors={['#00F260', '#0575E6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            className="py-4 items-center"
-        >
+        <View className="py-4 items-center">
             <Text className="text-white font-bold text-base uppercase tracking-widest">Confirm Sync</Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -102,7 +96,6 @@ export default function StudyScreen() {
 
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // const BASE_URL = "http://192.168.100.191:5000";
   const navigation = useNavigation();
 
   // SVG Config
@@ -280,23 +273,22 @@ export default function StudyScreen() {
             onPress={toggleTimer}
             className="shadow-xl shadow-blue-500/20 rounded-full overflow-hidden mx-6"
           >
-            <LinearGradient
-                colors={isRunning ? ['#FFB75E', '#ED8F03'] : ['#00F260', '#0575E6']}
-                className="w-24 h-24 items-center justify-center"
+            <View
+                className={`w-24 h-24 items-center justify-center ${isRunning ? 'bg-amber-500' : 'bg-green-500'}`} // Solid colors
             >
                 {isRunning ? (
                     <Pause color="white" size={32} fill="white" />
                 ) : (
                     <Play color="white" size={32} fill="white" style={{ marginLeft: 4 }} />
                 )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
              onPress={() => setShowPicker(true)}
              className="w-16 h-16 rounded-full bg-neutral-900 border border-white/10 items-center justify-center"
           >
-            <Clock color="#white" size={24} />
+            <Clock color="#ffffff" size={24} />
           </TouchableOpacity>
         </View>
 
