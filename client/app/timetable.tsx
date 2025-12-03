@@ -269,7 +269,7 @@ export default function TimetablePage() {
                         className="w-40 mr-2 bg-black border border-white/10 rounded-xl overflow-hidden"
                         >
                         <TextInput
-                            placeholder="Free Slot"
+                            placeholder="Noffin"
                             placeholderTextColor="#333"
                             value={timetable[day]?.[index] || ""}
                             onChangeText={(val) => handleInput(day, index, val)}

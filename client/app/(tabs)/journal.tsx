@@ -222,18 +222,14 @@ export default function JournalScreen() {
         <View className="flex-row justify-between gap-3">
           <TouchableOpacity
             onPress={editingId ? handleUpdateNote : handleAddNote}
-            className="flex-1 rounded-xl overflow-hidden shadow-sm shadow-blue-500/20"
+            className="flex-1 rounded-xl overflow-hidden shadow-sm bg-white/5  py-4 flex-row justify-center items-center "
           >
-             <LinearGradient
-               colors={editingId ? ['#FF512F', '#DD2476'] : ['#4facfe', '#00f2fe']}
-               start={{x: 0, y: 0}} end={{x: 1, y: 0}}
-               className="py-4 flex-row justify-center items-center"
-             >
+             
                 {editingId ? <Save color="white" size={20} /> : <Plus color="white" size={20} />}
                 <Text className="text-white font-bold ml-2">
                    {editingId ? "Save Changes" : "Add Entry"}
                 </Text>
-             </LinearGradient>
+            
           </TouchableOpacity>
 
           {!editingId && (

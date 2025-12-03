@@ -56,7 +56,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/register" />
       </Stack>
-      <Toast visibilityTime={2} position="top"/>
+      <Toast/>
     </SocketProvider>
   );
 }

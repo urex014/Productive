@@ -139,7 +139,7 @@ router.post('/notifications/register-token', auth, async (req: Request, res: Res
   res.json({ message: "Push token registered" });
 });
 
-// Forgot Password (Corrected)
+// Forgot Password (Generate 6-Digit Code)
 router.post('/auth/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) {
@@ -150,46 +150,126 @@ router.post('/auth/forgot-password', async (req: Request, res: Response) => {
   try {
     const user = await User.findOne({ email });
     
-    // Security: Always return 200 even if user not found to prevent email enumeration
+    // Security: Always return 200 even if user not found
     if (!user) {
-        res.status(200).json({ message: "If that email is registered, a reset link has been sent." });
+        res.status(200).json({ message: "If that email is registered, a code has been sent." });
         return;
     }
 
-    // Generate Reset Token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    // Generate 6-Digit Code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     
-    user.reset_token = hashedToken;
+    // Store code directly (or hashed if preferred, but plain code is common for short expiry)
+    // For better security, hashing is recommended, but we'll store plain for simplicity in this example
+    // assuming the expiry is short. To be robust, let's hash it.
+    const hashedCode = crypto.createHash("sha256").update(resetCode).digest("hex");
+    
+    user.reset_token = hashedCode;
     user.reset_token_expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await user.save();
 
-    // Construct Reset URL (Ensure CLIENT_URL is in .env)
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-
     // Configure Transporter
     const transporter = nodemailer.createTransport({
-      service: "gmail", // Or use SMTP host/port
+      service: "gmail",
       auth: { 
         user: process.env.EMAIL_USER, 
         pass: process.env.EMAIL_PASS 
       },
     });
 
+    // Styled Email Template with Code
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px;">
+        <div style="text-align: center; padding-bottom: 20px;">
+          <h1 style="color: #333; margin-bottom: 5px;">Product1ve</h1>
+          <p style="color: #666; margin: 0; font-size: 14px;">Password Reset Verification</p>
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">WSG Yami,</p>
+          <p style="font-size: 16px; color: #555; line-height: 1.5; margin-bottom: 25px;">
+            Use the code below to reset your password. This code is valid for 15 minutes.
+          </p>
+          
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="background-color: #f0f0f0; color: #333; padding: 15px 30px; font-size: 32px; font-weight: bold; letter-spacing: 5px; border-radius: 8px; display: inline-block; border: 1px solid #ddd;">
+              ${resetCode}
+            </div>
+          </div>
+          
+          <p style="font-size: 14px; color: #888; margin-bottom: 0;">
+            If you didn't request this code, you can safely ignore this email.
+          </p>
+        </div>
+        
+        <div style="text-align: center; padding-top: 20px; color: #aaa; font-size: 12px;">
+          <p>&copy; ${new Date().getFullYear()} Product1ve. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
     // Send Email
     await transporter.sendMail({
-      from: `"Amara App" <${process.env.EMAIL_USER}>`,
+      from: `"Product1ve Support" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Password Reset Request",
-      text: `You requested a password reset.\n\nPlease click the following link to reset your password:\n\n${resetUrl}\n\nThis link is valid for 15 minutes.\nIf you did not request this, please ignore this email.`,
-      html: `<p>You requested a password reset.</p><p>Click <a href="${resetUrl}">here</a> to reset your password.</p><p>This link is valid for 15 minutes.</p>`
+      subject: "Your Password Reset Code",
+      text: `Your password reset code is: ${resetCode}. This code expires in 15 minutes.`,
+      html: emailHtml
     });
 
-    res.json({ message: "If that email is registered, a reset link has been sent." });
+    res.json({ message: "Code sent to your email." });
   } catch (err) {
     console.error("Forgot Password Error:", err);
     res.status(500).json({ message: "Unable to send email" });
   }
+});
+
+// Reset Password with Code
+router.post('/auth/reset-password', async (req: Request, res: Response) => {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+        res.status(400).json({ message: "Missing fields" });
+        return;
+    }
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user || !user.reset_token || !user.reset_token_expiry) {
+            res.status(400).json({ message: "Invalid or expired request" });
+            return;
+        }
+
+        // Verify Expiry
+        if (new Date() > user.reset_token_expiry) {
+            res.status(400).json({ message: "Code expired" });
+            return;
+        }
+
+        // Verify Code (Hash the input code to compare)
+        const hashedInputCode = crypto.createHash("sha256").update(code).digest("hex");
+        
+        if (hashedInputCode !== user.reset_token) {
+            res.status(400).json({ message: "Invalid code" });
+            return;
+        }
+
+        // Update Password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        
+        // Clear Reset Token
+        user.reset_token = undefined;
+        user.reset_token_expiry = undefined;
+        
+        await user.save();
+
+        res.json({ message: "Password reset successful" });
+
+    } catch (err) {
+        console.error("Reset Password Error:", err);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 export default router;

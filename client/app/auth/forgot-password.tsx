@@ -52,7 +52,10 @@ export default function ForgotPassword() {
       });
       
       // Optional: Navigate back to login after a delay
-      setTimeout(() => router.replace("/auth/login"), 2000);
+      setTimeout(() => router.push({
+        pathname: "/auth/reset-password",
+        params: { email }
+      }), 1000);
 
     } catch (err: any) {
       console.error("Forgot password error:", err);
@@ -115,7 +118,7 @@ export default function ForgotPassword() {
                 <TouchableOpacity
                   onPress={handleGetCode}
                   disabled={loading}
-                  className={`h-14 items-center justify-center rounded-2xl shadow-lg shadow-blue-500/20 ${loading ? 'bg-blue-800' : 'bg-blue-600'}`}
+                  className={`h-14 items-center justify-center rounded-2xl shadow-lg ${loading ? 'bg-blue-800' : 'bg-white/10 border border-white/20'}`}
                 >
                   {loading ? (
                     <ActivityIndicator color="#fff" />
