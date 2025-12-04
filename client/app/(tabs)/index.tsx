@@ -155,8 +155,8 @@ export default function DashboardScreen() {
               <Text className="text-neutral-500 text-xs font-bold tracking-[0.2em] uppercase">
                 Dashboard
               </Text>
-              <View className="w-[90%]">
-              <Text numberOfLines={1} className="text-3xl font-bold text-white mt-1">
+              <View className="w-[100%]">
+              <Text  className="text-3xl font-bold text-white mt-1">
                 {time} 
               </Text>
               </View>
