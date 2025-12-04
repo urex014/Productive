@@ -20,13 +20,14 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "notification":{
-        "icon":"./assets/images/connect-logo.png",
-        "color":"#000000"
-      }
+      "notification": {
+        "icon": "./assets/images/connect-logo.png",
+        "color": "#000000"
+      },
+      "package": "com.Amara.Product1ve"
     },
     "web": {
-      "bundler":"metro",
+      "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/connect-logo.png"
     },
@@ -50,8 +51,8 @@
       "typedRoutes": true,
       "reactCompiler": false
     },
-    "extra":{
-      "router":{},
+    "extra": {
+      "router": {},
       "eas": {
         "projectId": "523f070e-e4fa-43fa-9c17-4fb2a4c303b5"
       }
