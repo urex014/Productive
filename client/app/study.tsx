@@ -78,7 +78,7 @@ const DurationPicker = ({ onSetDuration, onClose }: { onSetDuration: (seconds: n
         className="rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 bg-blue-600" // Changed to solid bg-blue-600
       >
         <View className="py-4 items-center">
-            <Text className="text-white font-bold text-base uppercase tracking-widest">Confirm Sync</Text>
+            <Text className="text-white font-bold text-base uppercase tracking-widest">Confirm time</Text>
         </View>
       </TouchableOpacity>
     </View>
